@@ -1,0 +1,50 @@
+<mujoco model="511ArmURDF_0727">
+  <compiler angle="radian" meshdir="../meshes/"/>
+
+  <visual>
+    <!-- 坐标轴缩放：关节 0.15 m、site 0.05 m -->
+    <scale jointlength="0.15" jointwidth="0.05" framelength="0.4" framewidth="0.05"/>
+  </visual>
+
+  <asset>
+    <mesh name="base_link" content_type="model/stl" file="base_link.STL"/>
+    <mesh name="Link0^Left" content_type="model/stl" file="Link0^Left.STL"/>
+    <mesh name="Link1^Left" content_type="model/stl" file="Link1^Left.STL"/>
+    <mesh name="Link2^Left" content_type="model/stl" file="Link2^Left.STL"/>
+    <mesh name="Link3^Left" content_type="model/stl" file="Link3^Left.STL"/>
+    <mesh name="Link3_2^Left" content_type="model/stl" file="Link3_2^Left.STL"/>
+    <mesh name="Link4^Left" content_type="model/stl" file="Link4^Left.STL"/>
+    <mesh name="Link5_1_1^Left" content_type="model/stl" file="Link5_1_1^Left.STL"/>
+    <mesh name="Link5_1_2^Left" content_type="model/stl" file="Link5_1_2^Left.STL"/>
+    <mesh name="Link5_1_3^Left" content_type="model/stl" file="Link5_1_3^Left.STL"/>
+    <mesh name="Link6^Left" content_type="model/stl" file="Link6^Left.STL"/>
+    <mesh name="Link7^Left" content_type="model/stl" file="Link7^Left.STL"/>
+    <mesh name="Link5_2_1^Left" content_type="model/stl" file="Link5_2_1^Left.STL"/>
+    <mesh name="Link5_2_2^Left" content_type="model/stl" file="Link5_2_2^Left.STL"/>
+    <mesh name="Link5_2_3^Left" content_type="model/stl" file="Link5_2_3^Left.STL"/>
+    <mesh name="Link0^Right" content_type="model/stl" file="Link0^Right.STL"/>
+    <mesh name="Link1^Right" content_type="model/stl" file="Link1^Right.STL"/>
+    <mesh name="Link2^Right" content_type="model/stl" file="Link2^Right.STL"/>
+    <mesh name="Link3^Right" content_type="model/stl" file="Link3^Right.STL"/>
+    <mesh name="Link3_2^Right" content_type="model/stl" file="Link3_2^Right.STL"/>
+    <mesh name="Link4^Right" content_type="model/stl" file="Link4^Right.STL"/>
+    <mesh name="Link5_1_1^Right" content_type="model/stl" file="Link5_1_1^Right.STL"/>
+    <mesh name="Link5_1_2^Right" content_type="model/stl" file="Link5_1_2^Right.STL"/>
+    <mesh name="Link5_1_3^Right" content_type="model/stl" file="Link5_1_3^Right.STL"/>
+    <mesh name="Link6^Right" content_type="model/stl" file="Link6^Right.STL"/>
+    <mesh name="Link7^Right" content_type="model/stl" file="Link7^Right.STL"/>
+    <mesh name="Link5_2_1^Right" content_type="model/stl" file="Link5_2_1^Right.STL"/>
+    <mesh name="Link5_2_2^Right" content_type="model/stl" file="Link5_2_2^Right.STL"/>
+    <mesh name="Link5_2_3^Right" content_type="model/stl" file="Link5_2_3^Right.STL"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0"> 
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.79216 0.81961 0.93333 1" mesh="base_link"/>
+      <geom type="mesh" rgba="0.79216 0.81961 0.93333 1" mesh="base_link"/>
+      <body name="Link0^Left" pos="0 0 0.05">
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.79216 0.81961 0.93333 1" mesh="Link0^Left"/>    
+        
+      <body>
+    <body>   
+  <worldbody>

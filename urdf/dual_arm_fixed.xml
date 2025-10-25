@@ -1,0 +1,63 @@
+<mujoco model="511ArmURDF_0727">
+  <compiler angle="radian" meshdir="../meshes/"/>
+
+  <visual>
+    <scale jointlength="0.15" jointwidth="0.05" framelength="0.4" framewidth="0.05"/>
+  </visual>
+
+  <asset>
+    <mesh name="base_link" content_type="model/stl" file="base_link.STL"/>
+    <mesh name="Link0^Left" content_type="model/stl" file="Link0^Left.STL"/>
+    <mesh name="Link1^Left" content_type="model/stl" file="Link1^Left.STL"/>
+    <mesh name="Link2^Left" content_type="model/stl" file="Link2^Left.STL"/>
+    <mesh name="Link3^Left" content_type="model/stl" file="Link3^Left.STL"/>
+    <mesh name="Link3_2^Left" content_type="model/stl" file="Link3_2^Left.STL"/>
+    <mesh name="Link4^Left" content_type="model/stl" file="Link4^Left.STL"/>
+    <mesh name="Link5_1_1^Left" content_type="model/stl" file="Link5_1_1^Left.STL"/>
+    <mesh name="Link5_1_2^Left" content_type="model/stl" file="Link5_1_2^Left.STL"/>
+    <mesh name="Link5_1_3^Left" content_type="model/stl" file="Link5_1_3^Left.STL"/>
+    <mesh name="Link6^Left" content_type="model/stl" file="Link6^Left.STL"/>
+    <mesh name="Link7^Left" content_type="model/stl" file="Link7^Left.STL"/>
+    <mesh name="Link5_2_1^Left" content_type="model/stl" file="Link5_2_1^Left.STL"/>
+    <mesh name="Link5_2_2^Left" content_type="model/stl" file="Link5_2_2^Left.STL"/>
+    <mesh name="Link5_2_3^Left" content_type="model/stl" file="Link5_2_3^Left.STL"/>
+    <mesh name="Link0^Right" content_type="model/stl" file="Link0^Right.STL"/>
+    <mesh name="Link1^Right" content_type="model/stl" file="Link1^Right.STL"/>
+    <mesh name="Link2^Right" content_type="model/stl" file="Link2^Right.STL"/>
+    <mesh name="Link3^Right" content_type="model/stl" file="Link3^Right.STL"/>
+    <mesh name="Link3_2^Right" content_type="model/stl" file="Link3_2^Right.STL"/>
+    <mesh name="Link4^Right" content_type="model/stl" file="Link4^Right.STL"/>
+    <mesh name="Link5_1_1^Right" content_type="model/stl" file="Link5_1_1^Right.STL"/>
+    <mesh name="Link5_1_2^Right" content_type="model/stl" file="Link5_1_2^Right.STL"/>
+    <mesh name="Link5_1_3^Right" content_type="model/stl" file="Link5_1_3^Right.STL"/>
+    <mesh name="Link6^Right" content_type="model/stl" file="Link6^Right.STL"/>
+    <mesh name="Link7^Right" content_type="model/stl" file="Link7^Right.STL"/>
+    <mesh name="Link5_2_1^Right" content_type="model/stl" file="Link5_2_1^Right.STL"/>
+    <mesh name="Link5_2_2^Right" content_type="model/stl" file="Link5_2_2^Right.STL"/>
+    <mesh name="Link5_2_3^Right" content_type="model/stl" file="Link5_2_3^Right.STL"/>
+  </asset>
+
+  <!-- 省略: 左右臂所有子结构（此处应使用你原始文件对应内容完整拷贝） -->
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0">
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0"
+            rgba="0.79216 0.81961 0.93333 1" mesh="base_link"/>
+      <body name="Link1^Left" pos="0 0.1065 1.575" quat="0.499998 0.5 0.5 -0.500002">
+        <!-- 左臂完整结构放置此处 -->
+      </body>
+      <body name="Link1^Right" pos="0 -0.1065 1.575" quat="0.499998 0.5 0.5 -0.500002">
+        <!-- 右臂完整结构放置此处 -->
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- 保留你原有 actuator -->
+  </actuator>
+
+  <contact>
+    <exclude body1="Link3^Left" body2="Link4^Left"/>
+    <exclude body1="Link3^Right" body2="Link4^Right"/>
+  </contact>
+</mujoco>

@@ -1,0 +1,5 @@
+Left Mocap  Pos: [np.float64(0.2984), np.float64(0.2559), np.float64(1.9074)], Quat: [np.float64(0.6661), np.float64(0.0124), np.float64(-0.0017), np.float64(0.7457)]
+Right Mocap Pos: [np.float64(0.3065), np.float64(-0.262), np.float64(1.9109)], Quat: [np.float64(0.6864), np.float64(-0.0243), np.float64(-0.0032), np.float64(0.7268)]
+
+Left(0.2984 0.2559 1.9074) (0.6661 0.0124 -0.0017 0.7457)
+Right(0.2984 0.2559 1.9074) (0.6864 -0.0243 -0.0032 0.7268)
