@@ -27,8 +27,8 @@ SITE_RIGHT = "attachment_site_Right"
 POS_L = np.array([0.30, 0.255, 1.885])
 POS_R = np.array([0.30, -0.255, 1.885])
 QUAT_ID = np.array([1.0, 0.0, 0.0, 0.0])
-DEFAULT_TIMESTEP = 3e-2  # 2500 Hz
-INTERFACE_FRAMERATE = 60    # 可视化界面的动画刷新率
+DEFAULT_TIMESTEP = 5e-2  # 2500 Hz
+INTERFACE_FRAMERATE = 30    # 可视化界面的动画刷新率
 CACU_REPEAT = 4    # 迭代次数
 
 # ─────────────── 参考位姿 ───────────────
@@ -196,7 +196,7 @@ class RobotController:
     """
 
     # 初始化控制器
-    def __init__(self, xml_path=None, timestep=None, framerate=None, interpolation_density=50):
+    def __init__(self, xml_path=None, timestep=None, framerate=None, interpolation_density=10):
         """
         初始化控制器
         
@@ -247,7 +247,7 @@ class RobotController:
             list(REF_LEFT) + list(REF_RIGHT), 
             list(REF_LEFT.values()) + list(REF_RIGHT.values()), 
             #    抬臂    展背      扭肩    曲肘         翻腕    翻腕        扭腕       这里是维持参考姿态的权重，越高越不容易动
-            ([  0.2,   2,     1,   5,     0.2,   0.2,   0.2] + [25.0] * (len(REF_LEFT) - 7)) * 2)
+            ([  0.02,   0.2,     0.1,   0.5,     0.02,   0.02,   0.02] + [25.0] * (len(REF_LEFT) - 7)) * 2)
 
 
         # 耦合约束，关节联动
@@ -279,7 +279,7 @@ class RobotController:
         self.joint_limit_task = JointLimitTask(
             self.model, 
             list(REF_LEFT)[:7] + list(REF_RIGHT)[:7], 
-            cost=10.0)
+            cost=5.0)
         # 将其放在任务列表的前面以提高优先级
         self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
 
@@ -788,6 +788,7 @@ def demo_xbox_control_with_visualization():
                 # 检查是否按下A键重置位置
                 if xbox_controller.namedbutton_states["A"][0]:
                     print("检测到A键按下，重置位置")
+                    xbox_controller.reset_button_flags()
                     current_left_pos = initial_left_pose.translation().copy()
                     current_left_quat = initial_left_quat.copy()
                     current_right_pos = initial_right_pose.translation().copy()
@@ -800,7 +801,6 @@ def demo_xbox_control_with_visualization():
                         left_pose=target_left_pose,
                         right_pose=target_right_pose
                     )
-                    xbox_controller.namedbutton_states["X"][1] = False
                     time.sleep(0.3)  # 防止重复触发
                     continue
                 
@@ -821,7 +821,6 @@ def demo_xbox_control_with_visualization():
                 if position_tracking_mode:
                     # 当 all_correct 为 True 时，使用获取到的新位置，姿态保持不变
                     tracked_position = coordinate_transformer.get_current_position()
-                    print(tracked_position)
                     # 当 all_correct 为 False 时，位置和姿态都保持不变
                     if coordinate_transformer.all_correct:
                         # 将跟踪的位置应用到当前控制的手臂
