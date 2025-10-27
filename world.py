@@ -181,29 +181,32 @@ class CoordinateTransformer:
                 return
             
             # 提取未识别标记点1的位置（相对于参考坐标系A）
-            unidentified_markers = self.latest_data.get("unidentified_markers", [])
+            # unidentified_markers = self.latest_data.get("unidentified_markers", [])
+            
             dia_ref_A_list = self.latest_data.get("rigid_bodies", [])
             
-            if len(unidentified_markers) < 1 or len(dia_ref_A_list) < 2:
-                # 未找到未识别标记点1，保持上一次的位置
+            if len(dia_ref_A_list) < 2:
+                # 未找到参考坐标系与手绢，保持上一次的位置
                 self.all_correct = False
                 return
             
-            dia_ref_A = dia_ref_A_list[1]
-            dia_ref_A_markers = dia_ref_A.get("markers", [])
+            dia_ref_A_markers = dia_ref_A_list[0].get("markers", [])   # 参考坐标系
+            target_marker = dia_ref_A_list[1]   # 参手绢坐标系
+            target_marker_loc = target_marker.get("position", [])
+            target_marker_rot = target_marker.get("rotation", [])
             
             if len(dia_ref_A_markers) < 2:
                 self.all_correct = False
                 return
                 
-            dia_ref_A_loc = dia_ref_A_markers[1].get("position", [])
-            if dia_ref_A_loc[0] == 9999999.0:
+            dia_ref_A_loc = dia_ref_A_markers[1].get("position", [])    # 参考坐标系原点是第二个点
+            if dia_ref_A_loc[0] == 9999999.0 or target_marker_loc[0] == 9999999.0:
                 self.all_correct = False
                 return
             dia_ref_A_rot = dia_ref_A_markers[1].get("rotation", [])
                 
             # 未识别标记点1在参考坐标系A中的位置
-            marker_local_pos = unidentified_markers[0]
+            marker_local_pos = target_marker_loc
             if len(marker_local_pos) < 3 or len(dia_ref_A_loc) < 3:
                 # 坐标不完整，保持上一次的位置
                 self.all_correct = False
@@ -263,7 +266,7 @@ class CoordinateTransformer:
                 self.all_correct = False
                 return
             
-            dia_ref_A = dia_ref_A_list[1]
+            dia_ref_A = dia_ref_A_list[0]
             dia_ref_A_markers = dia_ref_A.get("markers", [])
             
             if len(dia_ref_A_markers) < 2:
