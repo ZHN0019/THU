@@ -1,0 +1,18 @@
+{
+'Joint1^Left': np.float64(0.774617803580581), 
+'Joint2^Left': np.float64(0.025340361872628975), 
+'Joint3^Left': np.float64(2.0431361130059784e-21), 
+'Joint3_2^Left': np.float64(1.046101194350734), 
+'Joint5_1_1^Left': np.float64(0.0006066767836756942), 
+'Joint5_2_1^Left': np.float64(-0.16589464817576283), 
+'Joint7^Left': np.float64(0.12665944305612137), 
+'Joint1^Right': np.float64(0.8160158384758828), 
+'Joint2^Right': np.float64(0.17127220188547004), 
+'Joint3^Right': np.float64(0.20930265196818165), 
+'Joint3_2^Right': np.float64(1.0114349057904255), 
+'Joint5_1_1^Right': np.float64(0.15369543379463493), 
+'Joint5_2_1^Right': np.float64(-0.21198976327134675), 
+'Joint7^Right': np.float64(0.025245836627719658)
+}
+
+

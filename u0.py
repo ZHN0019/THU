@@ -68,7 +68,6 @@ class PreferredPoseTask(mink.Task):
         J[np.arange(len(self.idx)), self.idx] = 1.0
         return J
 
-
 class CoupleTask(mink.Task):
     """ q_i + sign*q_j ≈ 0 """
     def __init__(self, model, j1, j2, sign=1.0, cost=25.0):
