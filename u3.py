@@ -212,14 +212,6 @@ class RobotController:
         self.model = mujoco.MjModel.from_xml_path(self.xml_path)
         # 增加约束和关节的最大数量（预防性措施）
 
-        # 在 RobotController.__init__ 中添加调试信息
-        for name in list(REF_LEFT) + list(REF_RIGHT):
-            jnt_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            if self.model.jnt_limited[jnt_id] == 1:
-                print(f"{name}: range = [{self.model.jnt_range[jnt_id, 0]}, {self.model.jnt_range[jnt_id, 1]}]")
-            else:
-                print(f"{name}: no limits")
-
         self.model.opt.timestep = self.timestep
         self.data = mujoco.MjData(self.model)
 
@@ -235,8 +227,8 @@ class RobotController:
         self.cfg.q[:] = self.data.qpos
 
         # 末端 到达 任务权重：3 平移 + 2 旋转，FrameTask内部会为每个自由度分配默认权重
-        self.tL = mink.FrameTask(SITE_LEFT, "site", 10, 0.005)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
-        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 0.005)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
+        self.tL = mink.FrameTask(SITE_LEFT, "site", 3, 1)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
+        self.tR = mink.FrameTask(SITE_RIGHT, "site", 3, 1)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
         self.tL._base_cost = self.tL.cost.copy()
         self.tR._base_cost = self.tR.cost.copy()
 
@@ -256,6 +248,7 @@ class RobotController:
             list(REF_LEFT.values()) + list(REF_RIGHT.values()), 
             #    抬臂    展背      扭肩    曲肘         翻腕    翻腕        扭腕       这里是维持参考姿态的权重，越高越不容易动
             ([  0.02,   0.2,     0.1,   0.5,     0.02,   0.02,   0.02] + [25.0] * (len(REF_LEFT) - 7)) * 2)
+
 
         # 耦合约束，关节联动
         COUPLE_EQ = [
@@ -282,10 +275,10 @@ class RobotController:
         self.joint_limit_task = JointLimitTask(
             self.model, 
             list(REF_LEFT) + list(REF_RIGHT), 
-            cost=15.0)
+            cost=25.0)
         # 将其放在任务列表的前面以提高优先级
         # self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
-        self.tasks = [self.tL, self.tR, self.joint_limit_task] + self.cpl_tasks
+        self.tasks = [self.tL, self.tR, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
 
         # 初始化mocap位姿
         self.mocap_left_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, MOCAP_LEFT)]
@@ -293,6 +286,10 @@ class RobotController:
 
         # 记录关节名称索引
         self.joints = list(REF_LEFT)[:7] + list(REF_RIGHT)[:7]
+        self.jidx = [
+            self.model.jnt_qposadr[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, n)]
+            for n in self.joints
+        ]
 
         # 初始化viewer
         self.current_pose_left = None   # 跟踪左臂当前位姿
@@ -370,7 +367,7 @@ class RobotController:
             # 执行移动（带插值或不带插值）
             if interpolate:
                 self._move_with_interpolation(self.current_pose_left, self.current_pose_right, 
-                                              target_left_pose, target_right_pose)
+                                            target_left_pose, target_right_pose)
             else:
                 # 直接设置目标位姿
                 self.tL.set_target(target_left_pose)
@@ -384,7 +381,7 @@ class RobotController:
                 
                 # 执行IK求解
                 self._solve_ik()
-
+                
                 # 更新当前位姿
                 self.current_pose_left = target_left_pose
                 self.current_pose_right = target_right_pose
@@ -503,7 +500,7 @@ class RobotController:
             # 执行IK求解
             self._solve_ik()
             
-            # 更新仿真并同步显示
+                        # 更新仿真并同步显示
             mujoco.mj_forward(self.model, self.data)
             self.viewer.sync()
             
@@ -822,10 +819,11 @@ def demo_xbox_control_with_visualization():
         
         # 当前控制的手臂标志 (False=左臂, True=右臂)
         control_right_arm = False
+        
         # 坐标跟踪模式标志
         position_tracking_mode = False
+        
         running = True
-        ctime = time.time()
         
         print("\r\r\r\r\r\r\r\r")
         
@@ -877,19 +875,14 @@ def demo_xbox_control_with_visualization():
                 # 检查是否按下LB键切换控制手臂
                 control_right_arm = xbox_controller.namedbutton_states["LB"][1]
                 
-                # 检查是否按下RB键切换 追踪/摊平
-                if xbox_controller.namedbutton_states["RB"][0]:
-                    if time.time() - ctime > 0.5:
-                        if xbox_controller.namedbutton_states["RB"][1]:
-                            target_change = -1
-                            ctime = time.time()
-                        else:
-                            target_change = 1
-                            ctime = time.time()
-                else:
-                    target_change = 0
-                    
-
+                # # 检查是否按下RB键切换 追踪/摊平
+                # if xbox_controller.namedbutton_states["RB"][1]:
+                #     robot_controller.set_end_effector_weights(10,1,10,1)    # 位置优先，指尖追踪
+                #     print("切换追踪/摊平")
+                # else:
+                #     robot_controller.set_end_effector_weights(10,1,10,1)    # 姿态优先，手摊平
+                #     print("切换追踪/摊平")
+                
                 # 如果处于坐标跟踪模式
                 if position_tracking_mode:
                     # 当 all_correct 为 True 时，使用获取到的新位置，姿态保持不变
@@ -935,9 +928,8 @@ def demo_xbox_control_with_visualization():
                     delta_pos = np.array([
                         left_stick[1] * position_scale,   # X方向
                         -left_stick[0] * position_scale,  # Y方向 (注意符号，可能需要调整)
-                        up_stick * position_scale + 0.2*target_change         # Z方向 (RT上升, LT下降)
+                        up_stick * position_scale         # Z方向 (RT上升, LT下降)
                     ])
-                    print("运动方向：{}".format(target_change))
                     
                     # 应用位置变化
                     if np.any(np.abs(delta_pos) > 0):
