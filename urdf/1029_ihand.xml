@@ -128,7 +128,7 @@
                               <geom type="mesh" rgba="0.52941 0.54902 0.54902 1" mesh="thumb_2_left"/>
                               <body name="thumb_3_left" pos="0.0055478 -0.030486 0.041387">
                                 <inertial pos="-0.00554498 -0.0149955 0.00359692" quat="0.905875 0.423539 -0.00121396 0.00193646" mass="0.0765974" diaginertia="8.30145e-06 8.0043e-06 4.06367e-06"/>
-                                <joint name="thumb_3_left" pos="0 0 0" axis="1 0 0" range="-0.877 -0.880"/>
+                                <joint name="thumb_3_left" pos="0 0 0" axis="1 0 0" range="-0.880 -0.877"/>
                                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.529412 0.54902 0.54902 1" mesh="thumb_3_left"/>
                                 <geom type="mesh" rgba="0.529412 0.54902 0.54902 1" mesh="thumb_3_left"/>
                               </body>
@@ -136,12 +136,12 @@
                           </body>
                           <body name="index_1_left" pos="-0.035982 0.1374 0.001">
                             <inertial pos="0.00536263 0.0159155 0.00310112" quat="0.485158 0.514414 -0.514414 0.485158" mass="0.0683288" diaginertia="7.38922e-06 7.25253e-06 2.7987e-06"/>
-                            <joint name="index_1_left" pos="0 0 0" axis="-1 0 0" range="-0 0"/>
+                            <joint name="index_1_left" pos="0 0 0" axis="-1 0 0" range="-0.01 0.01"/>
                             <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.529412 0.54902 0.54902 1" mesh="index_1_left"/>
                             <geom type="mesh" rgba="0.529412 0.54902 0.54902 1" mesh="index_1_left"/>
                             <body name="index_2_left" pos="0.00086299 0.03196 0.0029665">
                               <inertial pos="0.00449705 0.0252319 0.00730237" quat="0.437596 0.557437 -0.555058 0.435527" mass="0.0755274" diaginertia="1.57828e-05 1.57109e-05 2.47458e-06"/>
-                              <joint name="index_2_left" pos="0 0 0" axis="-1 0 0" range="-0 0"/>
+                              <joint name="index_2_left" pos="0 0 0" axis="-1 0 0" range="-0.01 0.01"/>
                               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.529412 0.54902 0.54902 1" mesh="index_2_left"/>
                               <geom type="mesh" rgba="0.529412 0.54902 0.54902 1" mesh="index_2_left"/>
                               <site name="attachment_site_Left" size="0.007" pos="0.0044 0.0465 0.010" quat="1 0 0 0" rgba="1 0 0 1" group="1"/>
@@ -274,12 +274,12 @@
                           </body>
                           <body name="index_1_right" pos="0.034276 0.1374 0.001">
                             <inertial pos="-0.003657 0.0162113 0.000273547" quat="0.528166 0.470149 -0.470149 0.528166" mass="0.0686349" diaginertia="7.48549e-06 7.33255e-06 2.81706e-06"/>
-                            <joint name="index_1_right" pos="0 0 0" axis="-1 0 0" range="-0 0"/>
+                            <joint name="index_1_right" pos="0 0 0" axis="-1 0 0" range="-0.01 0.01"/>
                             <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.529412 0.54902 0.54902 1" mesh="index_1_right"/>
                             <geom type="mesh" rgba="0.529412 0.54902 0.54902 1" mesh="index_1_right"/>
                             <body name="index_2_right" pos="0.00084336 0.031988 -0.0026473">
                               <inertial pos="-0.00450224 0.0245776 0.00926786" quat="0.415356 0.574373 -0.571678 0.41323" mass="0.0755293" diaginertia="1.57835e-05 1.57109e-05 2.47471e-06"/>
-                              <joint name="index_2_right" pos="0 0 0" axis="-1 0 0" range="-0 0"/>
+                              <joint name="index_2_right" pos="0 0 0" axis="-1 0 0" range="-0.01 0.01"/>
                               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.529412 0.54902 0.54902 1" mesh="index_2_right"/>
                               <geom type="mesh" rgba="0.529412 0.54902 0.54902 1" mesh="index_2_right"/>
                               <site name="attachment_site_Right" size="0.007" pos="-0.0045 0.045 0.015" quat="1 0 0 0" rgba="1 0 0 1" group="1"/>
@@ -376,9 +376,9 @@
 
     <position name="l_thumb_1" joint="thumb_1_left" kp="200" kv="10" ctrlrange="-0.725 -0.715" forcerange="-50 50"/>
     <position name="l_thumb_2" joint="thumb_2_left" kp="200" kv="10" ctrlrange="-0.725 -0.715" forcerange="-50 50"/>
-    <position name="l_thumb_3" joint="thumb_3_left" kp="200" kv="10" ctrlrange="-0.877 -0.880" forcerange="-50 50"/>
-    <position name="l_index_1" joint="index_1_left" kp="200" kv="10" ctrlrange="-0 0" forcerange="-50 50"/>
-    <position name="l_index_2" joint="index_2_left" kp="200" kv="10" ctrlrange="-0 0" forcerange="-50 50"/>
+    <position name="l_thumb_3" joint="thumb_3_left" kp="200" kv="10" ctrlrange="-0.880 -0.877" forcerange="-50 50"/>
+    <position name="l_index_1" joint="index_1_left" kp="200" kv="10" ctrlrange="-0.01 0.01" forcerange="-50 50"/>
+    <position name="l_index_2" joint="index_2_left" kp="200" kv="10" ctrlrange="-0.01 0.01" forcerange="-50 50"/>
     <position name="l_middle_1" joint="middle_1_left" kp="200" kv="10" ctrlrange="-1.55 -1.45" forcerange="-50 50"/>
     <position name="l_middle_2" joint="middle_2_left" kp="200" kv="10" ctrlrange="-1.55 -1.45" forcerange="-50 50"/>
     <position name="l_ring_1" joint="ring_1_left" kp="200" kv="10" ctrlrange="-1.55 -1.45" forcerange="-50 50"/>
@@ -397,8 +397,8 @@
     <position name="r_thumb_1" joint="thumb_1_right" kp="200" kv="10" ctrlrange="-1.425 -1.415" forcerange="-50 50"/>
     <position name="r_thumb_2" joint="thumb_2_right" kp="200" kv="10" ctrlrange="-0.530 -0.520" forcerange="-50 50"/>
     <position name="r_thumb_3" joint="thumb_3_right" kp="200" kv="10" ctrlrange="-1.285 -1.275" forcerange="-50 50"/>
-    <position name="r_index_1" joint="index_1_right" kp="200" kv="10" ctrlrange="-0 0" forcerange="-50 50"/>
-    <position name="r_index_2" joint="index_2_right" kp="200" kv="10" ctrlrange="-0 0" forcerange="-50 50"/>
+    <position name="r_index_1" joint="index_1_right" kp="200" kv="10" ctrlrange="-0.01 0.01" forcerange="-50 50"/>
+    <position name="r_index_2" joint="index_2_right" kp="200" kv="10" ctrlrange="-0.01 0.01" forcerange="-50 50"/>
     <position name="r_middle_1" joint="middle_1_right" kp="200" kv="10" ctrlrange="-1.245 -1.235" forcerange="-50 50"/>
     <position name="r_middle_2" joint="middle_2_right" kp="200" kv="10" ctrlrange="-1.575 -1.565" forcerange="-50 50"/>
     <position name="r_ring_1" joint="ring_1_right" kp="200" kv="10" ctrlrange="-1.505 -1.495" forcerange="-50 50"/>
