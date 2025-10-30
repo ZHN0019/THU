@@ -33,11 +33,11 @@ DEFAULT_TIMESTEP = 5e-2  # 2500 Hz
 INTERFACE_FRAMERATE = 10    # 可视化界面的动画刷新率
 CACU_REPEAT = 4    # 迭代次数
 
-# ─────────────── 参考位姿 ───────────────
 REF_LEFT = {
-    "Joint1^Left": 1.59, "Joint2^Left": 0.0, "Joint3^Left": 0.0,
-    "Joint3_2^Left": 0.819, "Joint5_1_1^Left": 0.0,
-    "Joint5_2_1^Left": 0.0, "Joint7^Left": 0.0,
+    "Joint1^Left": 0.7749, "Joint2^Left": 0.1603, "Joint3^Left": 0.0, "Joint3_2^Left": 1.0457, "Joint4^Left": -1.0457,
+    "Joint5_1_1^Left": 0.0205, "Joint5_2_2^Left": 0.0205, "Joint5_2_3^Left": -0.0205, "Joint6^Left": 0.0205,
+    "Joint5_2_1^Left": 0.1663, "Joint5_1_2^Left": 0.1663, "Joint5_1_3^Left": -0.1663,
+    "Joint7^Left": 0.1624,
     "thumb_1_left": -0.72, "thumb_2_left": -0.72, "thumb_3_left": -0.877,
     "index_1_left": 0.0, "index_2_left": 0.0,
     "middle_1_left": -1.5, "middle_2_left": -1.5,
@@ -45,35 +45,14 @@ REF_LEFT = {
     "little_1_left": -1.5, "little_2_left": -1.5,
 }
 REF_RIGHT = {
-    "Joint1^Right": 1.59, "Joint2^Right": 0.0, "Joint3^Right": 0.0,
-    "Joint3_2^Right": 0.819, "Joint5_1_1^Right": 0.0,
-    "Joint5_2_1^Right": 0.0, "Joint7^Right": 0.0,
+    "Joint1^Right": 0.7746, "Joint2^Right": 0.1603, "Joint3^Right": 0.0, "Joint3_2^Right": 1.0461, "Joint4^Right": 1.0461, 
+    "Joint5_1_1^Right": 0.0205, "Joint5_2_2^Right": -0.0205, "Joint5_2_3^Right": 0.0205, "Joint6^Right": 0.0205,
+    "Joint5_2_1^Right": 0.1663,"Joint5_1_2^Right": 0.1663, "Joint5_1_3^Right": -0.1663,
+    "Joint7^Right": 0.1624,
     "thumb_1_right": -1.42, "thumb_2_right": -0.525, "thumb_3_right": -1.28,
     "index_1_right": 0.0, "index_2_right": 0.0,
     "middle_1_right": -1.24, "middle_2_right": -1.57,
     "ring_1_right": -1.5, "ring_2_right": -1.5,
-    "little_1_right": -1.5, "little_2_right": -1.5,
-}
-INIT_REF_LEFT = {
-    "Joint1^Left": 0.7749,  "Joint2^Left": 0.0253,
-    "Joint3^Left": 0.0, "Joint3_2^Left": 1.0457,
-    "Joint5_1_1^Left": 0.0005,   "Joint5_2_1^Left": -0.1663,
-    "Joint7^Left": 0.1271,  "thumb_1_left": -0.72, 
-    "thumb_2_left": -0.72,  "thumb_3_left": -0.877,
-    "index_1_left": 0.0,    "index_2_left": 0.0,
-    "middle_1_left": -1.5,  "middle_2_left": -1.5,
-    "ring_1_left": -1.5,    "ring_2_left": -1.5,
-    "little_1_left": -1.5,  "little_2_left": -1.5,
-}
-INIT_REF_RIGHT = {
-    "Joint1^Right": 0.7746, "Joint2^Right": 0.0253,        
-    "Joint3^Right": 0.0,    "Joint3_2^Right": 1.0461,       
-    "Joint5_1_1^Right": 0.0, "Joint5_2_1^Right": -0.1659,  
-    "Joint7^Right": 0.1267, "thumb_1_right": -1.42, 
-    "thumb_2_right": -0.525, "thumb_3_right": -1.28, 
-    "index_1_right": 0.0, "index_2_right": 0.0, 
-    "middle_1_right": -1.24, "middle_2_right": -1.57, 
-    "ring_1_right": -1.5, "ring_2_right": -1.5, 
     "little_1_right": -1.5, "little_2_right": -1.5,
 }
 
@@ -237,8 +216,6 @@ class RobotController:
         # 加载模型
         self.model = mujoco.MjModel.from_xml_path(self.xml_path)
         # 增加约束和关节的最大数量（预防性措施）
-        # self.model.njmax = max(self.model.njmax, 300)    # 确保至少300个关节
-        # self.model.nconmax = max(self.model.nconmax, 150)  # 确保至少150个约束
 
         self.model.opt.timestep = self.timestep
         self.data = mujoco.MjData(self.model)
@@ -256,7 +233,7 @@ class RobotController:
 
         # 末端 到达 任务权重：3 平移 + 2 旋转，FrameTask内部会为每个自由度分配默认权重
         self.tL = mink.FrameTask(SITE_LEFT, "site", 10, 1)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
-        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 1)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
+        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 11)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
         self.tL._base_cost = self.tL.cost.copy()
         self.tR._base_cost = self.tR.cost.copy()
 
@@ -309,8 +286,8 @@ class RobotController:
             list(REF_LEFT)[:7] + list(REF_RIGHT)[:7], 
             cost=5.0)
         # 将其放在任务列表的前面以提高优先级
-        self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
-        # self.tasks = [self.tL, self.tR, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
+        # self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
+        self.tasks = [self.tL, self.tR, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
 
 
         # 初始化mocap位姿
@@ -332,59 +309,6 @@ class RobotController:
             show_left_ui=True, show_right_ui=True
         )
         self.rate_limiter = RateLimiter(framerate or INTERFACE_FRAMERATE)
-        
-        # 多线程同步相关
-        self.sync_thread = None
-        self.sync_running = False
-        self.sync_lock = Lock()
-        self.sync_requested = False
-        
-        # 启动同步线程
-        self._start_sync_thread()
-
-    def _start_sync_thread(self):
-        """启动同步线程"""
-        if self.sync_thread is None or not self.sync_thread.is_alive():
-            self.sync_running = True
-            self.sync_thread = Thread(target=self._sync_worker, daemon=True)
-            self.sync_thread.start()
-
-    def _sync_worker(self):
-        """同步线程工作函数"""
-        while self.sync_running:
-            self.sync_simulation()
-
-    # 在 RobotController 类中修改相关方法：
-    def sync_simulation(self):
-        """
-        同步仿真显示（增强版）
-        """
-        if self.viewer is not None and self.viewer.is_running():
-            try:
-                with self.sync_lock:
-                    mujoco.mj_forward(self.model, self.data)
-                    self.viewer.sync()
-            except Exception as e:
-                # 忽略与数据访问冲突相关的错误
-                if "stack is in use" not in str(e) and "copy mjData" not in str(e):
-                    print(f"同步时出现错误: {e}")
-            finally:
-                if self.rate_limiter:
-                    try:
-                        self.rate_limiter.sleep()
-                    except:
-                        pass
-
-    def _sync_worker(self):
-        """同步线程工作函数（增强版）"""
-        while self.sync_running:
-            try:
-                self.sync_simulation()
-            except Exception as e:
-                # 忽略特定的并发错误
-                if "stack is in use" not in str(e) and "copy mjData" not in str(e):
-                    print(f"同步线程错误: {e}")
-            time.sleep(0.001)  # 避免过度占用CPU
     # 停止仿真可视化
     def stop_simulation(self):
         """
@@ -400,7 +324,6 @@ class RobotController:
             self.viewer.close()
             self.viewer = None
             self.rate_limiter = None
-
     # 设置末端执行器位姿
     def set_end_effector_pose(self, left_pose=None, right_pose=None, interpolate=True):
         """
@@ -412,6 +335,7 @@ class RobotController:
             interpolate: 是否使用插值移动到目标位姿
         """
         try:
+            # print(self.get_joint_angles())
             # 获取当前位姿（如果尚未初始化）
             if self.current_pose_left is None:
                 self.current_pose_left = mink.SE3.from_mocap_name(self.model, self.data, MOCAP_LEFT)
@@ -473,12 +397,14 @@ class RobotController:
                 # 更新当前位姿
                 self.current_pose_left = target_left_pose
                 self.current_pose_right = target_right_pose
+                
+            mujoco.mj_forward(self.model, self.data)
+            self.viewer.sync()
 
         except Exception as e:
             print(f"Error in set_end_effector_pose: {e}")
             import traceback
             traceback.print_exc()
-
     def _move_with_interpolation(self, current_left_pose, current_right_pose, 
                             target_left_pose, target_right_pose):
         """
@@ -586,8 +512,9 @@ class RobotController:
             # 执行IK求解
             self._solve_ik()
             
-            # # 同步显示
-            # self.sync_simulation()
+                        # 更新仿真并同步显示
+            mujoco.mj_forward(self.model, self.data)
+            self.viewer.sync()
             
             # 控制插值速度
             time.sleep(0.01)
@@ -595,7 +522,6 @@ class RobotController:
         # 更新当前位姿
         self.current_pose_left = target_left_pose
         self.current_pose_right = target_right_pose
-        
     def set_interpolation_points(self, points):
         """
         设置插值密度（每单位距离的插值点数）
@@ -604,7 +530,6 @@ class RobotController:
             points: 插值密度，例如0.05表示每0.05单位距离进行一次插值
         """
         self.interpolation_points = points
-
     def _solve_ik(self):
         """使用自适应重复次数执行IK求解，越接近目标点重复次数越多"""
         try:
@@ -619,7 +544,6 @@ class RobotController:
             print(f"Error in _solve_ik: {e}")
             import traceback
             traceback.print_exc()
-
     def _step_ik(self, dt, repeat=15):
         """执行IK求解步骤（增加错误处理和并发控制）"""
         for _ in range(repeat):
@@ -634,11 +558,9 @@ class RobotController:
                     vel = 0.0
                 self.cfg.integrate_inplace(vel, dt)
                 
-                # 在更新数据时暂停后台同步，避免冲突
-                with self.sync_lock:
-                    self.data.qpos[:] = self.cfg.q
-                    self.data.qvel[:] = vel
-                    mujoco.mj_forward(self.model, self.data)
+                self.data.qpos[:] = self.cfg.q
+                self.data.qvel[:] = vel
+                mujoco.mj_forward(self.model, self.data)
                     
             except Exception as e:
                 if "nefc under-allocation" in str(e):
@@ -647,47 +569,34 @@ class RobotController:
                     current_qpos = self.data.qpos.copy()
                     current_qvel = self.data.qvel.copy()
                     
-                    # 暂停后台线程
-                    was_running = self.sync_running
-                    self.sync_running = False
-                    if self.sync_thread is not None:
-                        self.sync_thread.join(timeout=1.0)
+                    # 重新创建模型和数据，增加约束数量
+                    self.model.njmax = int(self.model.njmax * 1.5)
+                    self.model.nconmax = int(self.model.nconmax * 1.5)
+                    new_data = mujoco.MjData(self.model)
                     
-                    try:
-                        # 重新创建模型和数据，增加约束数量
-                        self.model.njmax = int(self.model.njmax * 1.5)
-                        self.model.nconmax = int(self.model.nconmax * 1.5)
-                        new_data = mujoco.MjData(self.model)
-                        
-                        # 恢复状态
-                        new_data.qpos[:] = current_qpos
-                        new_data.qvel[:] = current_qvel
-                        self.data = new_data
-                        self.cfg.data = self.data
-                        
-                        # 重试
-                        vel = mink.solve_ik(
-                            self.cfg, self.tasks, dt, solver="daqp", damping=1e-3)
-                        max_vel = self.max_vel
-                        v_norm = np.linalg.norm(vel, np.inf)
-                        if v_norm > max_vel:
-                            vel *= max_vel / v_norm
-                        if vel is None:
-                            vel = 0.0
-                        self.cfg.integrate_inplace(vel, dt)
-                        
-                        with self.sync_lock:
-                            self.data.qpos[:] = self.cfg.q
-                            self.data.qvel[:] = vel
-                            mujoco.mj_forward(self.model, self.data)
-                    finally:
-                        # 恢复后台线程
-                        if was_running:
-                            self.sync_running = True
-                            self._start_sync_thread()
+                    # 恢复状态
+                    new_data.qpos[:] = current_qpos
+                    new_data.qvel[:] = current_qvel
+                    self.data = new_data
+                    self.cfg.data = self.data
+                    
+                    # 重试
+                    vel = mink.solve_ik(
+                        self.cfg, self.tasks, dt, solver="daqp", damping=1e-3)
+                    max_vel = self.max_vel
+                    v_norm = np.linalg.norm(vel, np.inf)
+                    if v_norm > max_vel:
+                        vel *= max_vel / v_norm
+                    if vel is None:
+                        vel = 0.0
+                    self.cfg.integrate_inplace(vel, dt)
+                    
+                    with self.sync_lock:
+                        self.data.qpos[:] = self.cfg.q
+                        self.data.qvel[:] = vel
+                        mujoco.mj_forward(self.model, self.data)
                 else:
                     raise e  # 重新抛出其他异常
-
     def _calculate_adaptive_repeat(self):
         """
         根据当前位姿与目标位姿的距离计算自适应重复次数
@@ -753,7 +662,6 @@ class RobotController:
         self.tR.cost[3:6] = adjusted_right_rot_weight
         
         return repeat
-   
     # 获取指定关节的角度
     def get_joint_angles(self, joint_names=None):
         """
@@ -778,7 +686,6 @@ class RobotController:
                 joint_angles[joint_name] = None  # 关节不存在
 
         return joint_angles
-
     # 更改末端的任务权重（姿态优先或位置优先）
     def set_end_effector_weights(self, left_translation_weight=3.0, left_rotation_weight=1.0,
                             right_translation_weight=3.0, right_rotation_weight=1.0):
@@ -798,7 +705,6 @@ class RobotController:
         # 设置右臂权重
         self.tR.cost[:3] = right_translation_weight
         self.tR.cost[3:6] = right_rotation_weight
-
     # 开始仿真可视化
     def start_simulation(self, framerate=None):
         """
@@ -817,7 +723,6 @@ class RobotController:
 
         freq = framerate or int(1 / self.timestep)
         self.rate_limiter = RateLimiter(freq)
-
     # 停止仿真可视化
     def stop_simulation(self):
         """
@@ -827,7 +732,6 @@ class RobotController:
             self.viewer.close()
             self.viewer = None
             self.rate_limiter = None
-
     def reset_minimal_movement_reference(self):
         """
         重置最小关节运动任务的参考角度
@@ -835,7 +739,6 @@ class RobotController:
         """
         if hasattr(self, 'min_movement_task'):
             self.min_movement_task.reset_reference(self.cfg.q)
-
     # 设置仿真帧率
     def set_frame_rate(self, framerate):
         """
@@ -846,7 +749,6 @@ class RobotController:
         """
         if self.rate_limiter is not None:
             self.rate_limiter = RateLimiter(framerate)
-
     # 初始化到参考姿态
     def initialize_to_reference_pose(self, left_pose=REF_LEFT, right_pose=REF_RIGHT):
         """
@@ -880,6 +782,7 @@ class RobotController:
 
             # 更新仿真并同步显示
             mujoco.mj_forward(self.model, self.data)
+            self.viewer.sync()
             time.sleep(0.01)  # 控制速度
             
         print("初始化完成")
@@ -900,9 +803,6 @@ def demo_xbox_control_with_visualization():
         # 获取初始位姿
         initial_left_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_LEFT)
         initial_right_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_RIGHT)
-        
-        # 设置初始位姿
-        robot_controller.set_end_effector_pose(left_pose=initial_left_pose, right_pose=initial_right_pose)
         
         # 初始化Xbox控制器
         try:
@@ -949,9 +849,6 @@ def demo_xbox_control_with_visualization():
         
         running = True
         
-                # # 初始化到参考姿态
-        robot_controller.initialize_to_reference_pose(INIT_REF_LEFT, INIT_REF_RIGHT)
-        
         print("\r\r\r\r\r\r\r\r")
         
         try:
@@ -967,18 +864,33 @@ def demo_xbox_control_with_visualization():
                 if xbox_controller.namedbutton_states["A"][0]:
                     print("检测到A键按下，重置位置")
                     xbox_controller.reset_button_flags()
+                    
                     current_left_pos = initial_left_pose.translation().copy()
                     current_left_quat = initial_left_quat.copy()
                     current_right_pos = initial_right_pose.translation().copy()
                     current_right_quat = initial_right_quat.copy()
-                    # 立即应用重置
+                    
+                    # 创建目标位姿
                     target_left_pose = mink.SE3(np.concatenate([current_left_quat, current_left_pos]))
                     target_right_pose = mink.SE3(np.concatenate([current_right_quat, current_right_pos]))
                     
-                    robot_controller.set_end_effector_pose(
-                        left_pose=target_left_pose,
-                        right_pose=target_right_pose
-                    )
+                    # 重要：更新当前位姿状态，防止闪动
+                    robot_controller.current_pose_left = target_left_pose
+                    robot_controller.current_pose_right = target_right_pose
+                    
+                    # 重置到参考姿态
+                    robot_controller.initialize_to_reference_pose()
+                    
+                    # 更新mocap位置
+                    robot_controller.data.mocap_pos[robot_controller.mocap_left_id] = target_left_pose.translation()
+                    robot_controller.data.mocap_quat[robot_controller.mocap_left_id] = target_left_pose.wxyz_xyz[0:4]
+                    robot_controller.data.mocap_pos[robot_controller.mocap_right_id] = target_right_pose.translation()
+                    robot_controller.data.mocap_quat[robot_controller.mocap_right_id] = target_right_pose.wxyz_xyz[0:4]
+                    
+                    # 同步显示
+                    mujoco.mj_forward(robot_controller.model, robot_controller.data)
+                    robot_controller.viewer.sync()
+                    
                     time.sleep(0.3)  # 防止重复触发
                     continue
                 
@@ -989,7 +901,7 @@ def demo_xbox_control_with_visualization():
                 
                 # 检查是否按下RB键切换 追踪/摊平
                 if xbox_controller.namedbutton_states["RB"][1]:
-                    robot_controller.set_end_effector_weights(10,0.1,10,0.1)    # 位置优先，指尖追踪
+                    robot_controller.set_end_effector_weights(10,1,10,1)    # 位置优先，指尖追踪
                     print("切换追踪/摊平")
                 else:
                     robot_controller.set_end_effector_weights(10,5,10,5)    # 姿态优先，手摊平
@@ -1060,16 +972,16 @@ def demo_xbox_control_with_visualization():
                         delta_rot_y = right_stick[1] * rotation_scale  # 右摇杆左右 -> 绕Y轴
                         delta_rot_x = right_stick[0] * rotation_scale  # 右摇杆上下 -> 绕X轴
                         
-                        # 创建增量旋转
+                        # 创建增量旋转 (使用与u0.py相同的顺序)
                         incremental_rot = R.from_euler('yx', [delta_rot_y, delta_rot_x])
                         
-                        # 应用旋转
+                        # 应用旋转 (顺序也需与u0.py保持一致)
                         new_rot = incremental_rot * current_rot
                         
                         # 转回四元数 (xyzw -> wxyz)
                         new_quat_xyzw = new_rot.as_quat()  # 返回 xyzw
                         current_quat[:] = np.array([new_quat_xyzw[3], new_quat_xyzw[0], 
-                                                new_quat_xyzw[1], new_quat_xyzw[2]])  # xyzw -> wxyz
+                                                  new_quat_xyzw[1], new_quat_xyzw[2]])  # xyzw -> wxyz
                     
                     # 更新对应手臂的位置和姿态
                     if control_right_arm:
@@ -1085,7 +997,7 @@ def demo_xbox_control_with_visualization():
                 last_left_pos = current_left_pos
                 last_right_pos = current_right_pos
                 
-                # print(target_left_pose,target_right_pose)
+                print(target_left_pose,target_right_pose)
                 
                 # 设置双臂目标位姿
                 robot_controller.set_end_effector_pose(

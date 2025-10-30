@@ -14,12 +14,14 @@ import time
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Slerp
 from xboxer import XboxController
+from threading import Thread, Lock
+import threading
 import mink
 import logging
 logging.getLogger('loop_rate_limiters').setLevel(logging.CRITICAL)
 
 # ─────────────── 默认参数 ───────────────
-XML_PATH = "urdf/0726scene3.xml"
+XML_PATH = "urdf/1029scene.xml"
 MOCAP_LEFT = "target_left"
 MOCAP_RIGHT = "target_right"
 SITE_LEFT = "attachment_site_Left"
@@ -27,15 +29,15 @@ SITE_RIGHT = "attachment_site_Right"
 POS_L = np.array([0.30, 0.255, 1.885])
 POS_R = np.array([0.30, -0.255, 1.885])
 QUAT_ID = np.array([1.0, 0.0, 0.0, 0.0])
-DEFAULT_TIMESTEP = 3e-2  # 2500 Hz
-INTERFACE_FRAMERATE = 60    # 可视化界面的动画刷新率
+DEFAULT_TIMESTEP = 1e-2  # 2500 Hz
+INTERFACE_FRAMERATE = 10    # 可视化界面的动画刷新率
 CACU_REPEAT = 4    # 迭代次数
 
-# ─────────────── 参考位姿 ───────────────
 REF_LEFT = {
-    "Joint1^Left": 1.59, "Joint2^Left": 0.0, "Joint3^Left": 0.0,
-    "Joint3_2^Left": 0.819, "Joint5_1_1^Left": 0.0,
-    "Joint5_2_1^Left": 0.0, "Joint7^Left": 0.0,
+    "Joint1^Left": 0.7749, "Joint2^Left": 0.1603, "Joint3^Left": 0.0, "Joint3_2^Left": 1.0457, "Joint4^Left": -1.0457,
+    "Joint5_1_1^Left": 0.0205, "Joint5_2_2^Left": 0.0205, "Joint5_2_3^Left": -0.0205, "Joint6^Left": 0.0205,
+    "Joint5_2_1^Left": 0.1663, "Joint5_1_2^Left": 0.1663, "Joint5_1_3^Left": -0.1663,
+    "Joint7^Left": 0.1624,
     "thumb_1_left": -0.72, "thumb_2_left": -0.72, "thumb_3_left": -0.877,
     "index_1_left": 0.0, "index_2_left": 0.0,
     "middle_1_left": -1.5, "middle_2_left": -1.5,
@@ -43,9 +45,10 @@ REF_LEFT = {
     "little_1_left": -1.5, "little_2_left": -1.5,
 }
 REF_RIGHT = {
-    "Joint1^Right": 1.59, "Joint2^Right": 0.0, "Joint3^Right": 0.0,
-    "Joint3_2^Right": 0.819, "Joint5_1_1^Right": 0.0,
-    "Joint5_2_1^Right": 0.0, "Joint7^Right": 0.0,
+    "Joint1^Right": 0.7746, "Joint2^Right": 0.1603, "Joint3^Right": 0.0, "Joint3_2^Right": 1.0461, "Joint4^Right": 1.0461, 
+    "Joint5_1_1^Right": 0.0205, "Joint5_2_2^Right": -0.0205, "Joint5_2_3^Right": 0.0205, "Joint6^Right": 0.0205,
+    "Joint5_2_1^Right": 0.1663,"Joint5_1_2^Right": 0.1663, "Joint5_1_3^Right": -0.1663,
+    "Joint7^Right": 0.1624,
     "thumb_1_right": -1.42, "thumb_2_right": -0.525, "thumb_3_right": -1.28,
     "index_1_right": 0.0, "index_2_right": 0.0,
     "middle_1_right": -1.24, "middle_2_right": -1.57,
@@ -195,7 +198,7 @@ class RobotController:
     """
 
     # 初始化控制器
-    def __init__(self, xml_path=None, timestep=None, framerate=None, interpolation_density=50):
+    def __init__(self, xml_path=None, timestep=None, framerate=None, interpolation_density=10):
         """
         初始化控制器
         
@@ -211,6 +214,8 @@ class RobotController:
 
         # 加载模型
         self.model = mujoco.MjModel.from_xml_path(self.xml_path)
+        # 增加约束和关节的最大数量（预防性措施）
+
         self.model.opt.timestep = self.timestep
         self.data = mujoco.MjData(self.model)
 
@@ -222,12 +227,12 @@ class RobotController:
         # 使用u8.py的DualIK结构
         self.cfg = mink.Configuration(self.model)
         self.cfg.data = self.data
-        self.max_vel = 3
+        self.max_vel = 10
         self.cfg.q[:] = self.data.qpos
 
         # 末端 到达 任务权重：3 平移 + 2 旋转，FrameTask内部会为每个自由度分配默认权重
-        self.tL = mink.FrameTask(SITE_LEFT, "site", 10, 0.10)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
-        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 0.10)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
+        self.tL = mink.FrameTask(SITE_LEFT, "site", 10, 1)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
+        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 1)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
         self.tL._base_cost = self.tL.cost.copy()
         self.tR._base_cost = self.tR.cost.copy()
 
@@ -246,7 +251,7 @@ class RobotController:
             list(REF_LEFT) + list(REF_RIGHT), 
             list(REF_LEFT.values()) + list(REF_RIGHT.values()), 
             #    抬臂    展背      扭肩    曲肘         翻腕    翻腕        扭腕       这里是维持参考姿态的权重，越高越不容易动
-            ([  0.2,   2,     1,   5,     0.2,   0.2,   0.2] + [25.0] * (len(REF_LEFT) - 7)) * 2)
+            ([  0.02,   0.2,     0.1,   0.5,     0.02,   0.02,   0.02] + [25.0] * (len(REF_LEFT) - 7)) * 2)
 
 
         # 耦合约束，关节联动
@@ -265,22 +270,19 @@ class RobotController:
             ("Joint5_1_1^Right", "Joint6^Right", -1.0),
         ]
         self.cpl_tasks = [CoupleTask(self.model, a, b, s) for a, b, s in COUPLE_EQ]
-
-
         # 最小关节运动任务
         self.min_movement_task = MinimalJointMovementTask(
             self.model, 
             list(REF_LEFT)[:7] + list(REF_RIGHT)[:7], 
-            costs=[  2,   2,     1,   5,     2.5,   2.5,   2] *2)
-        
-        
+            costs=[  2,   2,     1,   5,     2.5,   2.5,   2] *2)  
         # 创建关节限制任务
         self.joint_limit_task = JointLimitTask(
             self.model, 
             list(REF_LEFT)[:7] + list(REF_RIGHT)[:7], 
-            cost=10.0)
+            cost=25.0)
         # 将其放在任务列表的前面以提高优先级
         self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
+        # self.tasks = [self.tL, self.tR, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
 
         # 初始化mocap位姿
         self.mocap_left_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, MOCAP_LEFT)]
@@ -300,8 +302,20 @@ class RobotController:
             self.model, self.data,
             show_left_ui=True, show_right_ui=True
         )
-        self.rate_limiter = RateLimiter(framerate or INTERFACE_FRAMERATE)
-
+    # 停止仿真可视化
+    def stop_simulation(self):
+        """
+        停止仿真可视化
+        """
+        # 停止同步线程
+        self.sync_running = False
+        if self.sync_thread is not None:
+            self.sync_thread.join(timeout=1.0)
+        
+        # 停止viewer
+        if self.viewer is not None:
+            self.viewer.close()
+            self.viewer = None
     # 设置末端执行器位姿
     def set_end_effector_pose(self, left_pose=None, right_pose=None, interpolate=True):
         """
@@ -313,6 +327,7 @@ class RobotController:
             interpolate: 是否使用插值移动到目标位姿
         """
         try:
+            # print(self.get_joint_angles())
             # 获取当前位姿（如果尚未初始化）
             if self.current_pose_left is None:
                 self.current_pose_left = mink.SE3.from_mocap_name(self.model, self.data, MOCAP_LEFT)
@@ -374,12 +389,14 @@ class RobotController:
                 # 更新当前位姿
                 self.current_pose_left = target_left_pose
                 self.current_pose_right = target_right_pose
+                
+            mujoco.mj_forward(self.model, self.data)
+            self.viewer.sync()
 
         except Exception as e:
             print(f"Error in set_end_effector_pose: {e}")
             import traceback
             traceback.print_exc()
-
     def _move_with_interpolation(self, current_left_pose, current_right_pose, 
                             target_left_pose, target_right_pose):
         """
@@ -487,8 +504,9 @@ class RobotController:
             # 执行IK求解
             self._solve_ik()
             
-            # 同步显示
-            self.sync_simulation()
+                        # 更新仿真并同步显示
+            mujoco.mj_forward(self.model, self.data)
+            self.viewer.sync()
             
             # 控制插值速度
             time.sleep(0.01)
@@ -496,7 +514,6 @@ class RobotController:
         # 更新当前位姿
         self.current_pose_left = target_left_pose
         self.current_pose_right = target_right_pose
-        
     def set_interpolation_points(self, points):
         """
         设置插值密度（每单位距离的插值点数）
@@ -505,7 +522,6 @@ class RobotController:
             points: 插值密度，例如0.05表示每0.05单位距离进行一次插值
         """
         self.interpolation_points = points
-
     def _solve_ik(self):
         """使用自适应重复次数执行IK求解，越接近目标点重复次数越多"""
         try:
@@ -520,11 +536,64 @@ class RobotController:
             print(f"Error in _solve_ik: {e}")
             import traceback
             traceback.print_exc()
-
+    def _step_ik(self, dt, repeat=15):
+        """执行IK求解步骤（增加错误处理和并发控制）"""
+        for _ in range(repeat):
+            try:
+                vel = mink.solve_ik(
+                    self.cfg, self.tasks, dt, solver="daqp", damping=1e-3)
+                max_vel = self.max_vel
+                v_norm = np.linalg.norm(vel, np.inf)
+                if v_norm > max_vel:
+                    vel *= max_vel / v_norm
+                if vel is None:
+                    vel = 0.0
+                self.cfg.integrate_inplace(vel, dt)
+                
+                self.data.qpos[:] = self.cfg.q
+                self.data.qvel[:] = vel
+                mujoco.mj_forward(self.model, self.data)
+                    
+            except Exception as e:
+                if "nefc under-allocation" in str(e):
+                    print("检测到约束不足，正在重新分配...")
+                    # 保存当前状态
+                    current_qpos = self.data.qpos.copy()
+                    current_qvel = self.data.qvel.copy()
+                    
+                    # 重新创建模型和数据，增加约束数量
+                    self.model.njmax = int(self.model.njmax * 1.5)
+                    self.model.nconmax = int(self.model.nconmax * 1.5)
+                    new_data = mujoco.MjData(self.model)
+                    
+                    # 恢复状态
+                    new_data.qpos[:] = current_qpos
+                    new_data.qvel[:] = current_qvel
+                    self.data = new_data
+                    self.cfg.data = self.data
+                    
+                    # 重试
+                    vel = mink.solve_ik(
+                        self.cfg, self.tasks, dt, solver="daqp", damping=1e-3)
+                    max_vel = self.max_vel
+                    v_norm = np.linalg.norm(vel, np.inf)
+                    if v_norm > max_vel:
+                        vel *= max_vel / v_norm
+                    if vel is None:
+                        vel = 0.0
+                    self.cfg.integrate_inplace(vel, dt)
+                    
+                    with self.sync_lock:
+                        self.data.qpos[:] = self.cfg.q
+                        self.data.qvel[:] = vel
+                        mujoco.mj_forward(self.model, self.data)
+                else:
+                    raise e  # 重新抛出其他异常
     def _calculate_adaptive_repeat(self):
         """
         根据当前位姿与目标位姿的距离计算自适应重复次数
-        距离越近，重复次数越多（控制越精细）
+        距离越远，重复次数越少；距离越近，重复次数越多（控制越精细）
+        同时根据距离调整任务权重
         """
         # 通过MuJoCo原生方法获取当前左右臂末端执行器位姿
         left_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, SITE_LEFT)
@@ -548,7 +617,7 @@ class RobotController:
         
         # 定义参数
         min_repeat = CACU_REPEAT  # 最小重复次数（原始值）
-        max_repeat = CACU_REPEAT * 3  # 最大重复次数
+        max_repeat = CACU_REPEAT * 2  # 最大重复次数
         threshold = 0.1  # 距离阈值，小于这个值时开始增加重复次数
         
         # 根据误差计算重复次数（反比关系）
@@ -559,27 +628,32 @@ class RobotController:
             repeat = min_repeat + (max_repeat - min_repeat) * (1 - total_error/threshold)
             repeat = int(max(min_repeat, min(repeat, max_repeat)))
         
-        return repeat
-
-    def _step_ik(self, dt, repeat=15):
-        """执行IK求解步骤"""
-        # 注意：目标位姿已经在set_end_effector_pose中通过set_target设置过了
-        # 我们直接使用当前的任务配置进行求解
+        # 动态调整任务权重：越远离目标点，任务权重越大
+        # 基础权重值
+        base_left_trans_weight = self.tL._base_cost[0]  # 假设平移权重相同
+        base_left_rot_weight = self.tL._base_cost[3]    # 假设旋转权重相同
         
-        for _ in range(repeat):
-            vel = mink.solve_ik(
-                self.cfg, self.tasks, dt, solver="daqp", damping=1e-2)
-            max_vel = self.max_vel
-            v_norm = np.linalg.norm(vel, np.inf)
-            if v_norm > max_vel:
-                vel *= max_vel / v_norm
-            if vel is None:
-                vel = 0.0
-            self.cfg.integrate_inplace(vel, dt)
-            self.data.qpos[:] = self.cfg.q
-            self.data.qvel[:] = vel
-            mujoco.mj_forward(self.model, self.data)
-            
+        base_right_trans_weight = self.tR._base_cost[0]
+        base_right_rot_weight = self.tR._base_cost[3]
+        
+        # 根据距离调整权重（距离越远权重越大）
+        # 这里使用指数函数使远处权重增长更快
+        distance_factor = min(total_error / threshold, 1.0)  # 归一化距离因子
+        
+        # 调整权重：越远离目标权重越大，有助于快速移动
+        adjusted_left_trans_weight = base_left_trans_weight * (1 + 2 * distance_factor)
+        adjusted_left_rot_weight = base_left_rot_weight * (1 + distance_factor)
+        
+        adjusted_right_trans_weight = base_right_trans_weight * (1 + 2 * distance_factor)
+        adjusted_right_rot_weight = base_right_rot_weight * (1 + distance_factor)
+        
+        # 应用新的权重
+        self.tL.cost[:3] = adjusted_left_trans_weight
+        self.tL.cost[3:6] = adjusted_left_rot_weight
+        self.tR.cost[:3] = adjusted_right_trans_weight
+        self.tR.cost[3:6] = adjusted_right_rot_weight
+        
+        return repeat
     # 获取指定关节的角度
     def get_joint_angles(self, joint_names=None):
         """
@@ -604,7 +678,6 @@ class RobotController:
                 joint_angles[joint_name] = None  # 关节不存在
 
         return joint_angles
-
     # 更改末端的任务权重（姿态优先或位置优先）
     def set_end_effector_weights(self, left_translation_weight=3.0, left_rotation_weight=1.0,
                             right_translation_weight=3.0, right_rotation_weight=1.0):
@@ -624,7 +697,6 @@ class RobotController:
         # 设置右臂权重
         self.tR.cost[:3] = right_translation_weight
         self.tR.cost[3:6] = right_rotation_weight
-
     # 开始仿真可视化
     def start_simulation(self, framerate=None):
         """
@@ -642,8 +714,6 @@ class RobotController:
         )
 
         freq = framerate or int(1 / self.timestep)
-        self.rate_limiter = RateLimiter(freq)
-
     # 停止仿真可视化
     def stop_simulation(self):
         """
@@ -652,8 +722,6 @@ class RobotController:
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
-            self.rate_limiter = None
-
     def reset_minimal_movement_reference(self):
         """
         重置最小关节运动任务的参考角度
@@ -661,252 +729,45 @@ class RobotController:
         """
         if hasattr(self, 'min_movement_task'):
             self.min_movement_task.reset_reference(self.cfg.q)
-    # 同步仿真显示
-    def sync_simulation(self):
-        """
-        同步仿真显示
-        """
-        if self.viewer is not None and self.viewer.is_running():
-            mujoco.mj_forward(self.model, self.data)
-            self.viewer.sync()
-            if self.rate_limiter:
-                try:
-                    self.rate_limiter.sleep()
-                except:
-                    pass
-
-    # 设置仿真帧率
-    def set_frame_rate(self, framerate):
-        """
-        设置仿真帧率
-        
-        Args:
-            framerate: 新的帧率
-        """
-        if self.rate_limiter is not None:
-            self.rate_limiter = RateLimiter(framerate)
-
     # 初始化到参考姿态
-    def initialize_to_reference_pose(self):
+    def initialize_to_reference_pose(self, left_pose=REF_LEFT, right_pose=REF_RIGHT):
         """
-        平滑移动到参考姿态
+        平滑移动到参考姿态（从当前位置开始）
         """
         print("正在初始化到参考姿态...")
+        
+        # 获取当前关节角度作为起始位置
+        current_qpos = self.data.qpos.copy()
+        
         for s in np.linspace(0, np.pi, 50):
-            t = 0.5 - 0.5 * np.cos(s)
-            for jn in REF_LEFT:
+            t = 0.5 - 0.5 * np.cos(s)  # S型插值
+            
+            # 对于每个左侧关节
+            for jn in left_pose:
                 jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, jn)
                 idx = self.model.jnt_qposadr[jid]
-                self.data.qpos[idx] = (1 - t) * 0.0 + t * REF_LEFT[jn]
-            for jn in REF_RIGHT:
+                # 从当前位置插值到参考角度
+                current_angle = current_qpos[idx]
+                target_angle = left_pose[jn]
+                self.data.qpos[idx] = (1 - t) * current_angle + t * target_angle
+                
+            # 对于每个右侧关节
+            for jn in right_pose:
                 jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, jn)
                 idx = self.model.jnt_qposadr[jid]
-                self.data.qpos[idx] = (1 - t) * 0.0 + t * REF_RIGHT[jn]
+                # 从当前位置插值到参考角度
+                current_angle = current_qpos[idx]
+                target_angle = right_pose[jn]
+                self.data.qpos[idx] = (1 - t) * current_angle + t * target_angle
 
+            # 更新仿真并同步显示
             mujoco.mj_forward(self.model, self.data)
-            self.sync_simulation()
+            self.viewer.sync()
             time.sleep(0.01)  # 控制速度
             
         print("初始化完成")
 
-def demo_xbox_control_with_visualization_():
-    """
-    使用Xbox手柄控制机器人双臂的演示，并可视化目标位姿
-    左摇杆控制左臂位置，右摇杆控制左臂姿态
-    """
-    try:
-        # 创建控制器实例
-        robot_controller = RobotController()
-        
-        # # 初始化到参考姿态
-        robot_controller.initialize_to_reference_pose()
-        
-        # 获取初始位姿
-        initial_left_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_LEFT)
-        initial_right_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_RIGHT)
-        
-        # 设置初始位姿
-        robot_controller.set_end_effector_pose(left_pose=initial_left_pose, right_pose=initial_right_pose)
-        
-        # 初始化Xbox控制器
-        try:
-            xbox_controller = XboxController(long_press_threshold=1.0)
-        except Exception as e:
-            print(f"无法初始化Xbox控制器: {e}")
-            print("请确保已连接Xbox控制器并正确安装pygame")
-            return
-        
-        print("Xbox手柄控制演示开始:")
-        print("左摇杆: 控制左臂位置 (X/Y方向)")
-        print("右摇杆: 控制左臂姿态 (绕X/Y轴旋转)")
-        print("扳机键: 控制Z方向移动 (LT下降, RT上升)")
-        print("按B键退出")
-        print("按A键重置位置")
-        print("按LB键切换左右手")
-        print("按RB键执行任务")
-        
-        # 控制参数
-        position_scale = 0.1  # 降低位置控制灵敏度，避免移动过快
-        rotation_scale = 0.1   # 姿态控制灵敏度
-        
-        # 初始化左右臂的当前位置和姿态
-        current_left_pos = initial_left_pose.translation().copy()
-        current_right_pos = initial_right_pose.translation().copy()
-        
-        # 获取初始四元数 (wxyz格式)
-        initial_left_quat = initial_left_pose.wxyz_xyz[0:4].copy()  # wxyz格式
-        current_left_quat = initial_left_quat.copy()
-        initial_right_quat = initial_right_pose.wxyz_xyz[0:4].copy()  # wxyz格式
-        current_right_quat = initial_right_quat.copy()
-        
-        # 当前控制的手臂标志 (False=左臂, True=右臂)
-        control_right_arm = False
-        
-        running = True
-        
-        try:
-            while running and robot_controller.viewer is not None and robot_controller.viewer.is_running():
-                # 注意：XboxController在后台线程中自动更新状态，无需手动调用update()
-                
-                # 检查是否按下B键退出
-                if xbox_controller.namedbutton_states.get("B", [False, False, False])[0]:
-                    print("检测到B键按下，退出控制")
-                    running = False
-                    break
-                
-                # 检查是否按下LB键切换控制手臂
-                control_right_arm = xbox_controller.namedbutton_states["LB"][1]
-                # 检查是否按下RB键切换 追踪/摊平
-                if xbox_controller.namedbutton_states["RB"][1]:
-                    robot_controller.set_end_effector_weights(10,0.1,10,0.1)    # 位置x优先，指尖追踪
-                    print("切换追踪/摊平")
-                else:
-                    robot_controller.set_end_effector_weights(10,5,10,5)    # 姿态优先爱你，手摊平
-                    print("切换追踪/摊平")
-                
-                # 检查是否按下A键重置位置
-                if xbox_controller.namedbutton_states.get("A", [False, False, False])[0]:
-                    print("检测到A键按下，重置位置")
-                    current_left_pos = initial_left_pose.translation().copy()
-                    current_left_quat = initial_left_quat.copy()
-                    current_right_pos = initial_right_pose.translation().copy()
-                    current_right_quat = initial_right_quat.copy()
-                    # 立即应用重置
-                    target_left_pose = mink.SE3(np.concatenate([current_left_quat, current_left_pos]))
-                    target_right_pose = mink.SE3(np.concatenate([current_right_quat, current_right_pos]))
-                    
-                    robot_controller.set_end_effector_pose(
-                        left_pose=target_left_pose,
-                        right_pose=target_right_pose
-                    )
-                    xbox_controller.namedbutton_states["A"][1] = False
-                    time.sleep(0.3)  # 防止重复触发
-                    continue
-                
-                # 根据当前控制的手臂选择参数
-                if control_right_arm:
-                    # 控制右臂
-                    current_pos = current_right_pos
-                    current_quat = current_right_quat
-                else:
-                    # 控制左臂
-                    current_pos = current_left_pos
-                    current_quat = current_left_quat
-                # print("当前位姿:",current_pos, current_quat)
-                # 获取摇杆输入
-                left_stick = xbox_controller.left_stick    # 用于位置控制 (x, y)
-                right_stick = xbox_controller.right_stick  # 用于姿态控制 (x, y)
-                # 使用扳机键控制Z轴移动
-                up_stick = xbox_controller.triggers[1] - xbox_controller.triggers[0]  # RT - LT
-                
-                # 添加死区处理，避免微小摇杆移动
-                left_stick = [0.0 if abs(x) < 0.1 else x for x in left_stick]
-                right_stick = [0.0 if abs(x) < 0.1 else x for x in right_stick]
-                up_stick = 0.0 if abs(up_stick) < 0.1 else up_stick
-                
-                # 位置变化量
-                delta_pos = np.array([
-                    left_stick[1] * position_scale,   # X方向
-                    -left_stick[0] * position_scale,  # Y方向 (注意符号，可能需要调整)
-                    up_stick * position_scale         # Z方向 (RT上升, LT下降)
-                ])
-                
-                # 应用位置变化
-                if np.any(np.abs(delta_pos) > 0):
-                    current_pos += delta_pos
-                
-                # 姿态控制 - 使用更简单的方法
-                if np.any(np.abs(right_stick) > 0):
-                    # 将当前四元数转换为旋转矩阵，应用增量旋转，再转回四元数
-                    from scipy.spatial.transform import Rotation as R
-                    
-                    # 当前旋转 (wxyz -> xyzw)
-                    current_rot = R.from_quat([current_quat[1], current_quat[2], 
-                                             current_quat[3], current_quat[0]])  # wxyz -> xyzw
-                    
-                    # 增量旋转 (绕Y轴和X轴)
-                    delta_rot_y = right_stick[1] * rotation_scale  # 右摇杆左右 -> 绕Y轴
-                    delta_rot_x = right_stick[0] * rotation_scale  # 右摇杆上下 -> 绕X轴
-                    
-                    # 创建增量旋转
-                    incremental_rot = R.from_euler('yx', [delta_rot_y, delta_rot_x])
-                    
-                    # 应用旋转
-                    new_rot = incremental_rot * current_rot
-                    
-                    # 转回四元数 (xyzw -> wxyz)
-                    new_quat_xyzw = new_rot.as_quat()  # 返回 xyzw
-                    current_quat[:] = np.array([new_quat_xyzw[3], new_quat_xyzw[0], 
-                                              new_quat_xyzw[1], new_quat_xyzw[2]])  # xyzw -> wxyz
-                
-                # 更新对应手臂的位置和姿态
-                if control_right_arm:
-                    current_right_pos[:] = current_pos
-                    current_right_quat[:] = current_quat
-                else:
-                    current_left_pos[:] = current_pos
-                    current_left_quat[:] = current_quat
-                
-                # 创建目标位姿
-                target_left_pose = mink.SE3(np.concatenate([current_left_quat, current_left_pos]))
-                target_right_pose = mink.SE3(np.concatenate([current_right_quat, current_right_pos]))
-                
-                print(target_left_pose,target_right_pose)
-                
-                # 设置双臂目标位姿
-                robot_controller.set_end_effector_pose(
-                    left_pose=target_left_pose,
-                    right_pose=target_right_pose
-                )
-                
-                # 同步显示
-                robot_controller.sync_simulation()
-                
-                # 控制循环频率
-                time.sleep(0.02)  # 50Hz控制频率
-                
-        except KeyboardInterrupt:
-            print("检测到Ctrl+C，退出控制")
-        except Exception as e:
-            print(f"控制循环中出现错误: {e}")
-            import traceback
-            traceback.print_exc()
-            
-        # 停止仿真
-        robot_controller.stop_simulation()
-        try:
-            xbox_controller.stop()
-        except:
-            pass
-        print("Xbox控制演示结束")
-        
-    except Exception as e:
-        print(f"Error in demo_xbox_control: {e}")
-        import traceback
-        traceback.print_exc()
-    
-# 修改 u1.py 文件中的 demo_xbox_control_with_visualization 函数
-
+from world import CoordinateTransformer
 def demo_xbox_control_with_visualization():
     """
     使用Xbox手柄控制机器人双臂的演示，并可视化目标位姿
@@ -916,19 +777,12 @@ def demo_xbox_control_with_visualization():
         # 创建控制器实例
         robot_controller = RobotController()
         
-        # 初始化坐标变换器
-        from world import CoordinateTransformer
-        transformer = CoordinateTransformer()
-        
-        # # 初始化到参考姿态
+        # 初始化到参考姿态
         robot_controller.initialize_to_reference_pose()
         
         # 获取初始位姿
         initial_left_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_LEFT)
         initial_right_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_RIGHT)
-        
-        # 设置初始位姿
-        robot_controller.set_end_effector_pose(left_pose=initial_left_pose, right_pose=initial_right_pose)
         
         # 初始化Xbox控制器
         try:
@@ -938,6 +792,9 @@ def demo_xbox_control_with_visualization():
             print("请确保已连接Xbox控制器并正确安装pygame")
             return
         
+        # 初始化坐标变换器
+        coordinate_transformer = CoordinateTransformer()
+        
         print("Xbox手柄控制演示开始:")
         print("左摇杆: 控制左臂位置 (X/Y方向)")
         print("右摇杆: 控制左臂姿态 (绕X/Y轴旋转)")
@@ -946,7 +803,7 @@ def demo_xbox_control_with_visualization():
         print("按A键重置位置")
         print("按LB键切换左右手")
         print("按RB键执行任务")
-        print("按X键启用外部坐标控制")
+        print("按X键切换到坐标跟踪模式")
         
         # 控制参数
         position_scale = 0.1  # 降低位置控制灵敏度，避免移动过快
@@ -955,6 +812,8 @@ def demo_xbox_control_with_visualization():
         # 初始化左右臂的当前位置和姿态
         current_left_pos = initial_left_pose.translation().copy()
         current_right_pos = initial_right_pose.translation().copy()
+        last_left_pos = current_left_pos
+        last_right_pos = current_right_pos
         
         # 获取初始四元数 (wxyz格式)
         initial_left_quat = initial_left_pose.wxyz_xyz[0:4].copy()  # wxyz格式
@@ -965,90 +824,89 @@ def demo_xbox_control_with_visualization():
         # 当前控制的手臂标志 (False=左臂, True=右臂)
         control_right_arm = False
         
-        # 外部坐标控制标志
-        external_control = False
-        
-        # 上一次有效的外部坐标
-        last_external_pos = None
+        # 坐标跟踪模式标志
+        position_tracking_mode = False
         
         running = True
+        
+        print("\r\r\r\r\r\r\r\r")
         
         try:
             while running and robot_controller.viewer is not None and robot_controller.viewer.is_running():
                 # 注意：XboxController在后台线程中自动更新状态，无需手动调用update()
                 
                 # 检查是否按下B键退出
-                if xbox_controller.namedbutton_states.get("B", [False, False, False])[0]:
+                if xbox_controller.namedbutton_states["B"][0]:
                     print("检测到B键按下，退出控制")
                     running = False
                     break
-                
                 # 检查是否按下A键重置位置
                 if xbox_controller.namedbutton_states["A"][0]:
                     print("检测到A键按下，重置位置")
+                    xbox_controller.reset_button_flags()
+                    
                     current_left_pos = initial_left_pose.translation().copy()
                     current_left_quat = initial_left_quat.copy()
                     current_right_pos = initial_right_pose.translation().copy()
                     current_right_quat = initial_right_quat.copy()
-                    # 立即应用重置
+                    
+                    # 创建目标位姿
                     target_left_pose = mink.SE3(np.concatenate([current_left_quat, current_left_pos]))
                     target_right_pose = mink.SE3(np.concatenate([current_right_quat, current_right_pos]))
                     
-                    robot_controller.set_end_effector_pose(
-                        left_pose=target_left_pose,
-                        right_pose=target_right_pose
-                    )
-                    xbox_controller.namedbutton_states["X"][1] = False
+                    # 重要：更新当前位姿状态，防止闪动
+                    robot_controller.current_pose_left = target_left_pose
+                    robot_controller.current_pose_right = target_right_pose
+                    
+                    # 重置到参考姿态
+                    robot_controller.initialize_to_reference_pose()
+                    
+                    # 更新mocap位置
+                    robot_controller.data.mocap_pos[robot_controller.mocap_left_id] = target_left_pose.translation()
+                    robot_controller.data.mocap_quat[robot_controller.mocap_left_id] = target_left_pose.wxyz_xyz[0:4]
+                    robot_controller.data.mocap_pos[robot_controller.mocap_right_id] = target_right_pose.translation()
+                    robot_controller.data.mocap_quat[robot_controller.mocap_right_id] = target_right_pose.wxyz_xyz[0:4]
+                    
+                    # 同步显示
+                    mujoco.mj_forward(robot_controller.model, robot_controller.data)
+                    robot_controller.viewer.sync()
+                    
                     time.sleep(0.3)  # 防止重复触发
                     continue
                 
+                # 检查是否按下X键切换坐标跟踪模式
+                position_tracking_mode = xbox_controller.namedbutton_states["X"][1]
                 # 检查是否按下LB键切换控制手臂
                 control_right_arm = xbox_controller.namedbutton_states["LB"][1]
                 
-                # 检查是否按下X键启用外部坐标控制
-                external_control = xbox_controller.namedbutton_states["X"][1]  # 按下X键时
-                # 记录启用时的姿态
-                if external_control:
-                    if control_right_arm:
-                        last_external_pos = current_right_pos.copy()
-                    else:
-                        last_external_pos = current_left_pos.copy()
-                
-                # # 检查是否按下RB键切换 追踪/摊平
+                # 检查是否按下RB键切换 追踪/摊平
                 if xbox_controller.namedbutton_states["RB"][1]:
-                    robot_controller.set_end_effector_weights(10,0.1,10,0.1)    # 位置x优先，指尖追踪
+                    robot_controller.set_end_effector_weights(10,1,10,1)    # 位置优先，指尖追踪
                     print("切换追踪/摊平")
                 else:
-                    robot_controller.set_end_effector_weights(10,5,10,5)    # 姿态优先爱你，手摊平
+                    robot_controller.set_end_effector_weights(10,1,10,1)    # 姿态优先，手摊平
                     print("切换追踪/摊平")
                 
-                # 处理外部坐标控制逻辑
-                if external_control:
-                    # 获取外部坐标
-                    external_position = transformer.get_current_position()
+                # 如果处于坐标跟踪模式
+                if position_tracking_mode:
+                    # 当 all_correct 为 True 时，使用获取到的新位置，姿态保持不变
+                    tracked_position = coordinate_transformer.get_current_position()
+                    # 当 all_correct 为 False 时，位置和姿态都保持不变
+                    if coordinate_transformer.all_correct:
+                        # 将跟踪的位置应用到当前控制的手臂
+                        if control_right_arm:
+                            # 更新右臂位置，保持姿态不变
+                            current_right_pos[:] = [i / 1000. for i in tracked_position]
+                        else:
+                            # 更新左臂位置，保持姿态不变
+                            current_left_pos[:] = [i / 1000. for i in tracked_position]
+                    else:
+                        current_left_pos[:] = last_left_pos
+                        current_right_pos[:] = last_right_pos
                     
-                    # 只有当坐标有效且all_correct为True时才更新位置
-                    if external_position is not None and transformer.all_correct:
-                        # 将外部坐标转换为适当的坐标系（可能需要调整比例和偏移）
-                        # 这里假设坐标已经是在合适坐标系中的，如有必要请进行适当转换
-                        converted_pos = np.array(external_position) / 1000.0  # 从毫米转换为米
-                        
-                        # 更新控制手臂的目标位置
-                        if control_right_arm:
-                            current_right_pos[:] = converted_pos
-                        else:
-                            current_left_pos[:] = converted_pos
-                            
-                        # 保存为上一次的有效位置
-                        last_external_pos = converted_pos.copy()
-                    elif last_external_pos is not None:
-                        # 如果当前坐标无效，则保持上次的有效位置
-                        if control_right_arm:
-                            current_right_pos[:] = last_external_pos
-                        else:
-                            current_left_pos[:] = last_external_pos
+                    # 如果 all_correct 为 False，则位置和姿态都保持不变（不需要特殊处理）
                 else:
-                    # 手动控制逻辑
+                    # 手动控制模式
                     # 根据当前控制的手臂选择参数
                     if control_right_arm:
                         # 控制右臂
@@ -1088,16 +946,16 @@ def demo_xbox_control_with_visualization():
                         
                         # 当前旋转 (wxyz -> xyzw)
                         current_rot = R.from_quat([current_quat[1], current_quat[2], 
-                                                 current_quat[3], current_quat[0]])  # wxyz -> xyzw
+                                                current_quat[3], current_quat[0]])  # wxyz -> xyzw
                         
                         # 增量旋转 (绕Y轴和X轴)
                         delta_rot_y = right_stick[1] * rotation_scale  # 右摇杆左右 -> 绕Y轴
                         delta_rot_x = right_stick[0] * rotation_scale  # 右摇杆上下 -> 绕X轴
                         
-                        # 创建增量旋转
+                        # 创建增量旋转 (使用与u0.py相同的顺序)
                         incremental_rot = R.from_euler('yx', [delta_rot_y, delta_rot_x])
                         
-                        # 应用旋转
+                        # 应用旋转 (顺序也需与u0.py保持一致)
                         new_rot = incremental_rot * current_rot
                         
                         # 转回四元数 (xyzw -> wxyz)
@@ -1116,17 +974,16 @@ def demo_xbox_control_with_visualization():
                 # 创建目标位姿
                 target_left_pose = mink.SE3(np.concatenate([current_left_quat, current_left_pos]))
                 target_right_pose = mink.SE3(np.concatenate([current_right_quat, current_right_pos]))
+                last_left_pos = current_left_pos
+                last_right_pos = current_right_pos
+                
+                print(target_left_pose,target_right_pose)
                 
                 # 设置双臂目标位姿
-                print(target_left_pose,target_right_pose)
                 robot_controller.set_end_effector_pose(
                     left_pose=target_left_pose,
                     right_pose=target_right_pose
                 )
-                
-                
-                # 同步显示
-                robot_controller.sync_simulation()
                 
                 # 控制循环频率
                 time.sleep(0.02)  # 50Hz控制频率
