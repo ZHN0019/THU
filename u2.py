@@ -29,7 +29,7 @@ SITE_RIGHT = "attachment_site_Right"
 POS_L = np.array([0.30, 0.255, 1.885])
 POS_R = np.array([0.30, -0.255, 1.885])
 QUAT_ID = np.array([1.0, 0.0, 0.0, 0.0])
-DEFAULT_TIMESTEP = 1e-2  # 2500 Hz
+DEFAULT_TIMESTEP = 1e-1  # 2500 Hz
 INTERFACE_FRAMERATE = 10    # 可视化界面的动画刷新率
 CACU_REPEAT = 4    # 迭代次数
 
@@ -192,11 +192,7 @@ class JointLimitTask(mink.Task):
         return J
 
 class RobotController:
-    """
-    机器人控制器主类
-    提供统一的API接口用于控制双臂机器人
-    """
-
+    """ 机器人控制器主类,   提供统一的API接口用于控制双臂机器人 """
     # 初始化控制器
     def __init__(self, xml_path=None, timestep=None, framerate=None, interpolation_density=10):
         """
