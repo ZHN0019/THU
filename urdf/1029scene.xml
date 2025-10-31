@@ -33,5 +33,22 @@
       <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
       <geom type="box" size=".01 .01 .01" rgba="0.4 0.4 0.2 0.4"/>
     </body> 
+
+    <body name="Handkerchief_1" pos="0.5 0.5  0.5" quat="0.50968358 0.48511552 0.47788503 0.52584359" mocap="true">
+      <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
+    </body> 
+      <body name="Handkerchief_2" pos="0.5 0.5  0.5" quat="0.50968358 0.48511552 0.47788503 0.52584359" mocap="true">
+      <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
+    </body> 
+      <body name="Handkerchief_3" pos="0.5 0.5  0.5" quat="0.50968358 0.48511552 0.47788503 0.52584359" mocap="true">
+      <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
+    </body> 
+      <body name="Handkerchief_4" pos="0.5 0.5  0.5" quat="0.50968358 0.48511552 0.47788503 0.52584359" mocap="true">
+      <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
+    </body> 
+      <body name="Handkerchief_5" pos="0.5 0.5  0.5" quat="0.50968358 0.48511552 0.47788503 0.52584359" mocap="true">
+      <geom type="sphere" size=".01 .01 .01" contype="0" conaffinity="0" rgba="0.2 0.4 0.4 0.4"/>
+    </body> 
+
   </worldbody>
 </mujoco>

@@ -25,6 +25,7 @@ logging.getLogger('loop_rate_limiters').setLevel(logging.CRITICAL)
 XML_PATH = "urdf/1029scene.xml"
 MOCAP_LEFT = "target_left"
 MOCAP_RIGHT = "target_right"
+HANDKERCHIEF_PS = ["Handkerchief_1", "Handkerchief_2", "Handkerchief_3", "Handkerchief_4", "Handkerchief_5"]
 SITE_LEFT = "attachment_site_Left"
 SITE_RIGHT = "attachment_site_Right"
 POS_L = np.array([0.30, 0.255, 1.885])
@@ -200,9 +201,7 @@ class RobotController:
 
         self.model.opt.timestep = self.timestep
         self.data = mujoco.MjData(self.model)
-                # 存储可视化点的属性
-        self.visualization_points = {}  
-        # {name: {'position': ndarray, 'color': tuple, 'size': float}}
+        self.renderer = mujoco.Renderer(self.model)
 
         # 初始化状态                                    
         self.data.qpos[:] = 0.0
@@ -262,6 +261,8 @@ class RobotController:
         # 初始化mocap位姿
         self.mocap_left_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, MOCAP_LEFT)]
         self.mocap_right_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, MOCAP_RIGHT)]
+        self.Handkerchief_P = [self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, i)]
+                               for i in HANDKERCHIEF_PS]
 
         # 记录关节名称索引
         self.joints = list(REF_LEFT)[:7] + list(REF_RIGHT)[:7]
@@ -364,8 +365,7 @@ class RobotController:
                 # 更新当前位姿
                 self.current_pose_left = target_left_pose
                 self.current_pose_right = target_right_pose
-            
-            self.render_visualization_points()
+
             mujoco.mj_forward(self.model, self.data)
             self.viewer.sync()
 
@@ -744,93 +744,21 @@ class RobotController:
             time.sleep(0.01)  # 控制速度
             
         print("初始化完成")
-    
-    def add_visualization_point(self, name: str, position: np.ndarray, 
-                              color: Tuple[float, float, float, float] = (1, 0, 0, 1),
-                              size: float = 0.02):
+    def set_handkerchief_pose(self, handkerchief_id, position=None, quaternion=None):
+        self.data.mocap_pos[self.Handkerchief_P[handkerchief_id]] = position
+        self.data.mocap_quat[self.Handkerchief_P[handkerchief_id]] = quaternion
+    def set_handkerchiefs_poses(self, poses):
         """
-        添加一个可视化点
+        批量设置多个Handkerchief物体的位置和姿态
         
         Args:
-            name: 点的名称
-            position: 3D位置坐标 [x, y, z]
-            color: RGBA颜色值，默认红色
-            size: 点的大小
+            poses: 字典，键为handkerchief_id (1-5)，值为包含position和quaternion的字典
+                  例如: {1: {"position": [0.1, 0.2, 0.3], "quaternion": [1, 0, 0, 0]}}
         """
-        self.visualization_points[name] = {
-            'position': np.array(position),
-            'color': color,
-            'size': size
-        }
-    def update_point_position(self, name: str, position: np.ndarray):
-        """
-        更新指定点的位置
-        
-        Args:
-            name: 点的名称
-            position: 新的3D位置坐标 [x, y, z]
-        """
-        if name in self.visualization_points:
-            self.visualization_points[name]['position'] = np.array(position)
-    def update_point_color(self, name: str, color: Tuple[float, float, float, float]):
-        """
-        更新指定点的颜色
-        
-        Args:
-            name: 点的名称
-            color: 新的RGBA颜色值
-        """
-        if name in self.visualization_points:
-            self.visualization_points[name]['color'] = color
-    def update_point_size(self, name: str, size: float):
-        """
-        更新指定点的大小
-        
-        Args:
-            name: 点的名称
-            size: 新的点大小
-        """
-        if name in self.visualization_points:
-            self.visualization_points[name]['size'] = size
-    def remove_visualization_point(self, name: str):
-        """
-        删除指定的可视化点
-        
-        Args:
-            name: 要删除的点的名称
-        """
-        if name in self.visualization_points:
-            del self.visualization_points[name]
-    def clear_all_points(self):
-        """清除所有可视化点"""
-        self.visualization_points.clear()
-    def render_visualization_points(self):
-        """
-        渲染所有可视化点
-        """
-        if self.viewer is None:
-            return
-            
-        scene = self.viewer.user_scn
-        if scene is None:
-            return
-            
-        # 为每个点添加几何体
-        for point_data in self.visualization_points.values():
-            if scene.ngeom >= scene.maxgeom:
-                break
-                
-            geom = scene.geoms[scene.ngeom]
-            geom.type = mujoco.mjtGeom.mjGEOM_SPHERE
-            geom.size[:] = [point_data['size'], 0, 0]
-            geom.pos[:] = point_data['position']
-            geom.rgba[:] = point_data['color']
-            geom.segid = -1  # 不被选中
-            geom.category = mujoco.mjtCatBit.mjCAT_DECOR  # 装饰类别
-            geom.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
-            geom.objid = -1
-            scene.ngeom += 1
-# ... existing code ...
+        for handkerchief_id, pose in poses.items():
+            position = pose.get("position", None)
+            quaternion = pose.get("quaternion", None)
+            self.set_handkerchief_pose(handkerchief_id, position, quaternion)
 
 from world import CoordinateTransformer
 def demo_xbox_control_with_visualization():
@@ -844,13 +772,6 @@ def demo_xbox_control_with_visualization():
         
         # 初始化到参考姿态
         robot_controller.initialize_to_reference_pose()
-        
-        # 添加一个红色的可视化点
-        robot_controller.add_visualization_point("target_point", [0.5, 0.5, 0.5], color=(1, 0, 0, 1), size=0.1)
-        # 添加一个绿色的可视化点
-        robot_controller.add_visualization_point("obstacle_point", [-0.5, 0.5, 0.5], color=(0, 1, 0, 1), size=0.1)
-        # 更新点的位置
-        robot_controller.update_point_position("target_point", [0.5, 0.5, 0.5])
         
         # 获取初始位姿
         initial_left_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_LEFT)
@@ -963,6 +884,12 @@ def demo_xbox_control_with_visualization():
                 if position_tracking_mode:
                     # 当 all_correct 为 True 时，使用获取到的新位置，姿态保持不变
                     tracked_position = coordinate_transformer.get_current_position()
+                    for handkerchief_id in range(5):
+                        robot_controller.set_handkerchief_pose(
+                            handkerchief_id, 
+                            position=coordinate_transformer.Handkerchief_Poss[handkerchief_id], 
+                            quaternion=coordinate_transformer.Handkerchief_Quats[handkerchief_id])
+                    
                     # 当 all_correct 为 False 时，位置和姿态都保持不变
                     if coordinate_transformer.all_correct:
                         # 将跟踪的位置应用到当前控制的手臂

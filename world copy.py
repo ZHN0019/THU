@@ -32,11 +32,6 @@ class CoordinateTransformer:
         self.last_valid_position = [0,0,0]
         self.current_world_position = None
         
-        self.Handkerchief_Poss = [[0,0,0] for _ in range(5)]
-        self.Handkerchief_Quats = [[0,0,0,0] for _ in range(5)]
-        self.Orighin_Poss = [[0,0,0] for _ in range(5)]
-        self.Origin_Quats = [[0,0,0,0] for _ in range(5)]
-        
         # 添加锁保护共享数据
         self.data_lock = threading.Lock()
         
@@ -185,6 +180,9 @@ class CoordinateTransformer:
                 self.all_correct = False
                 return
             
+            # 提取未识别标记点1的位置（相对于参考坐标系A）
+            # unidentified_markers = self.latest_data.get("unidentified_markers", [])
+            
             dia_ref_A_list = self.latest_data.get("rigid_bodies", [])
             
             if len(dia_ref_A_list) < 2:
@@ -208,50 +206,45 @@ class CoordinateTransformer:
             dia_ref_A_rot = dia_ref_A_markers[1].get("rotation", [])
                 
             # 未识别标记点1在参考坐标系A中的位置
-            target_marker_locs = [target_marker_loc] + [loc["position"] for loc in target_marker.get("markers", [])]
-            target_marker_rots = [target_marker_rot] + [target_marker_rot for loc in target_marker.get("markers", [])]
-            if len(target_marker_locs[0]) < 3 or len(dia_ref_A_loc) < 3:
+            marker_local_pos = target_marker_loc
+            if len(marker_local_pos) < 3 or len(dia_ref_A_loc) < 3:
                 # 坐标不完整，保持上一次的位置
                 self.all_correct = False
                 return
             
             # 创建坐标系A的原点（在世界坐标系中）
             origin_A_in_world = np.array(self.reference_origin_in_world)
-            world_positions = [[0,0,0] for _ in range(6)]
-            world_rots = [[0,0,0] for _ in range(6)]
-            for i in range(len(target_marker_locs)):
-                target_marker_loc = target_marker_locs[i]
-                # 创建标记点在坐标系B中的位置
-                marker_in_B = np.array(target_marker_loc)
-                # 创建坐标系A的原点在坐标系B中的位置
-                origin_A_in_B = np.array(dia_ref_A_loc)
-                # 计算标记点相对于坐标系A原点在坐标系B中的向量
-                vector_B = marker_in_B - origin_A_in_B
-                # 坐标系B相对于世界坐标系绕Z轴顺时针旋转90度的变换矩阵
-                # 或者说逆时针旋转270度(-90度)
-                # 这样坐标系B的X轴指向世界坐标系的Y轴正方向
-                # 坐标系B的Y轴指向世界坐标系的X轴负方向
-                cos_neg90 = 0
-                sin_neg90 = -1
-                R_B_to_W = np.array([
-                    [cos_neg90, -sin_neg90, 0],  # [0, 1, 0]
-                    [sin_neg90, cos_neg90, 0],   # [-1, 0, 0]
-                    [0, 0, 1]                    # [0, 0, 1]
-                ])
-                
-                # 将向量从坐标系B变换到世界坐标系
-                vector_W = R_B_to_W @ vector_B
-                
-                # 计算标记点在世界坐标系中的最终位置
-                # 世界坐标 = 坐标系A原点在世界坐标系中的位置 + 向量在世界坐标系中的表示
-                if target_marker_loc[0] != 9999999.0:
-                    world_positions[i] = origin_A_in_world + vector_W
-                    world_rots[i] = target_marker_rots[i]
+            
+            # 创建标记点在坐标系B中的位置
+            marker_in_B = np.array(marker_local_pos)
+            
+            # 创建坐标系A的原点在坐标系B中的位置
+            origin_A_in_B = np.array(dia_ref_A_loc)
+            
+            # 计算标记点相对于坐标系A原点在坐标系B中的向量
+            vector_B = marker_in_B - origin_A_in_B
+            
+            # 坐标系B相对于世界坐标系绕Z轴顺时针旋转90度的变换矩阵
+            # 或者说逆时针旋转270度(-90度)
+            # 这样坐标系B的X轴指向世界坐标系的Y轴正方向
+            # 坐标系B的Y轴指向世界坐标系的X轴负方向
+            cos_neg90 = 0
+            sin_neg90 = -1
+            R_B_to_W = np.array([
+                [cos_neg90, -sin_neg90, 0],  # [0, 1, 0]
+                [sin_neg90, cos_neg90, 0],   # [-1, 0, 0]
+                [0, 0, 1]                    # [0, 0, 1]
+            ])
+            
+            # 将向量从坐标系B变换到世界坐标系
+            vector_W = R_B_to_W @ vector_B
+            
+            # 计算标记点在世界坐标系中的最终位置
+            # 世界坐标 = 坐标系A原点在世界坐标系中的位置 + 向量在世界坐标系中的表示
+            world_position = origin_A_in_world + vector_W
             
             # 更新当前位置并保存为上一次的有效位置
-            self.Handkerchief_Poss = world_positions[1:]
-            self.Handkerchief_Quats = world_rots[1:]
-            self.current_world_position = world_positions[0].tolist()
+            self.current_world_position = world_position.tolist()
             self.last_valid_position = self.current_world_position
             self.all_correct = True
 
