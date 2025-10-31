@@ -1,14 +1,9 @@
-import serial.tools.list_ports
+import mujoco
+from mujoco import viewer
 
-# 列出所有可用的串口
-ports = serial.tools.list_ports.comports()
-for port in ports:
-    print(port.device)  # 输出如 /dev/ttyUSB0
+# 加载模型
+model = mujoco.MjModel.from_xml_path('urdf/1029scene.xml')
+data = mujoco.MjData(model)
 
-# # 检查某个串口是否被占用
-# try:
-#     ser = serial.Serial(port.device)  # 尝试打开
-#     print(f"{ser.name} 已成功打开！")
-#     ser.close()
-# except serial.SerialException as e:
-#     print(f"无法打开串口: {e}")
+# 创建查看器
+viewer.launch(model, data)

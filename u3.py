@@ -11,6 +11,7 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 import time
+from typing import Tuple
 from loop_rate_limiters import RateLimiter
 from scipy.spatial.transform import Slerp
 from xboxer import XboxController
@@ -31,7 +32,7 @@ POS_R = np.array([0.30, -0.255, 1.885])
 QUAT_ID = np.array([1.0, 0.0, 0.0, 0.0])
 DEFAULT_TIMESTEP = 1e-2  # 2500 Hz
 INTERFACE_FRAMERATE = 10    # 可视化界面的动画刷新率
-CACU_REPEAT = 4    # 迭代次数
+CACU_REPEAT = 2    # 迭代次数
 
 REF_LEFT = {
     "Joint1^Left": 0.7749, "Joint2^Left": 0.1603, "Joint3^Left": 0.0, "Joint3_2^Left": 1.0457, "Joint4^Left": -1.0457,
@@ -55,21 +56,6 @@ REF_RIGHT = {
     "ring_1_right": -1.5, "ring_2_right": -1.5,
     "little_1_right": -1.5, "little_2_right": -1.5,
 }
-
-# 添加到u0.py中，放在类定义之前
-class PreferredPoseTask(mink.Task):
-    def __init__(self, model, names, q_ref, w):
-        self.idx = [model.jnt_qposadr[mujoco.mj_name2id(
-            model, mujoco.mjtObj.mjOBJ_JOINT, n)] for n in names]
-        self.qr = np.asarray(q_ref, float)
-        super().__init__(cost=np.asarray(w, float))
-
-    def num_errors(self): return len(self.idx)
-    def compute_error(self, cfg): return cfg.q[self.idx] - self.qr
-    def compute_jacobian(self, cfg):
-        J = np.zeros((len(self.idx), cfg.q.size))
-        J[np.arange(len(self.idx)), self.idx] = 1.0
-        return J
 
 class CoupleTask(mink.Task):
     """ q_i + sign*q_j ≈ 0 """
@@ -214,21 +200,24 @@ class RobotController:
 
         self.model.opt.timestep = self.timestep
         self.data = mujoco.MjData(self.model)
+                # 存储可视化点的属性
+        self.visualization_points = {}  
+        # {name: {'position': ndarray, 'color': tuple, 'size': float}}
 
-        # 初始化状态
+        # 初始化状态                                    
         self.data.qpos[:] = 0.0
-        self.data.qvel[:] = 0.0
+        self.data.qvel[:] = 0.0   
         mujoco.mj_forward(self.model, self.data)
 
         # 使用u8.py的DualIK结构
         self.cfg = mink.Configuration(self.model)
         self.cfg.data = self.data
-        self.max_vel = 10
+        self.max_vel = 100
         self.cfg.q[:] = self.data.qpos
 
         # 末端 到达 任务权重：3 平移 + 2 旋转，FrameTask内部会为每个自由度分配默认权重
-        self.tL = mink.FrameTask(SITE_LEFT, "site", 3, 1)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
-        self.tR = mink.FrameTask(SITE_RIGHT, "site", 3, 1)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
+        self.tL = mink.FrameTask(SITE_LEFT, "site", 10, 1)       # 左臂任务（让左臂标记点SITE_LEFT  去接近控制点）
+        self.tR = mink.FrameTask(SITE_RIGHT, "site", 10, 1)      # 右臂任务（让右臂标记点SITE_RIGHT 去接近控制点）
         self.tL._base_cost = self.tL.cost.copy()
         self.tR._base_cost = self.tR.cost.copy()
 
@@ -240,16 +229,6 @@ class RobotController:
         'Joint1^Right', 'Joint2^Right', 'Joint3^Right', 'Joint3_2^Right', 'Joint5_1_1^Right', 'Joint5_2_1^Right', 'Joint7^Right', 
         'thumb_1_right', 'thumb_2_right', 'thumb_3_right', 'index_1_right', 'index_2_right', 'middle_1_right', 'middle_2_right', 'ring_1_right', 'ring_2_right', 'little_1_right', 'little_2_right'
         ]"""
-
-        
-        self.pref = PreferredPoseTask(
-            self.model, 
-            list(REF_LEFT) + list(REF_RIGHT), 
-            list(REF_LEFT.values()) + list(REF_RIGHT.values()), 
-            #    抬臂    展背      扭肩    曲肘         翻腕    翻腕        扭腕       这里是维持参考姿态的权重，越高越不容易动
-            ([  0.02,   0.2,     0.1,   0.5,     0.02,   0.02,   0.02] + [25.0] * (len(REF_LEFT) - 7)) * 2)
-
-
         # 耦合约束，关节联动
         COUPLE_EQ = [
             ("Joint3_2^Left", "Joint4^Left", 1.0),
@@ -276,9 +255,9 @@ class RobotController:
             self.model, 
             list(REF_LEFT) + list(REF_RIGHT), 
             cost=25.0)
-        # 将其放在任务列表的前面以提高优先级
-        # self.tasks = [self.tL, self.tR, self.pref, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
+        # 将安全距离任务添加到任务列表开头（高优先级）
         self.tasks = [self.tL, self.tR, self.min_movement_task, self.joint_limit_task] + self.cpl_tasks
+        # self.tasks = [self.tL, self.tR] + self.cpl_tasks
 
         # 初始化mocap位姿
         self.mocap_left_id = self.model.body_mocapid[mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, MOCAP_LEFT)]
@@ -385,7 +364,8 @@ class RobotController:
                 # 更新当前位姿
                 self.current_pose_left = target_left_pose
                 self.current_pose_right = target_right_pose
-                
+            
+            self.render_visualization_points()
             mujoco.mj_forward(self.model, self.data)
             self.viewer.sync()
 
@@ -463,7 +443,9 @@ class RobotController:
         slerp_right = Slerp(times, rotations_right)
         
         # 生成插值点
+        print(f"生成差值点 {actual_points} 个")
         for s in np.linspace(0, np.pi, actual_points):
+            print("@")
             t = 0.5 - 0.5 * np.cos(s)  # S型插值
             
             # 线性插值位置
@@ -500,7 +482,7 @@ class RobotController:
             # 执行IK求解
             self._solve_ik()
             
-                        # 更新仿真并同步显示
+            # 更新仿真并同步显示
             mujoco.mj_forward(self.model, self.data)
             self.viewer.sync()
             
@@ -648,7 +630,7 @@ class RobotController:
         self.tL.cost[3:6] = adjusted_left_rot_weight
         self.tR.cost[:3] = adjusted_right_trans_weight
         self.tR.cost[3:6] = adjusted_right_rot_weight
-        
+        # print("重复次数：{}".format(repeat))
         return repeat
     # 获取指定关节的角度
     def get_joint_angles(self, joint_names=None):
@@ -762,6 +744,93 @@ class RobotController:
             time.sleep(0.01)  # 控制速度
             
         print("初始化完成")
+    
+    def add_visualization_point(self, name: str, position: np.ndarray, 
+                              color: Tuple[float, float, float, float] = (1, 0, 0, 1),
+                              size: float = 0.02):
+        """
+        添加一个可视化点
+        
+        Args:
+            name: 点的名称
+            position: 3D位置坐标 [x, y, z]
+            color: RGBA颜色值，默认红色
+            size: 点的大小
+        """
+        self.visualization_points[name] = {
+            'position': np.array(position),
+            'color': color,
+            'size': size
+        }
+    def update_point_position(self, name: str, position: np.ndarray):
+        """
+        更新指定点的位置
+        
+        Args:
+            name: 点的名称
+            position: 新的3D位置坐标 [x, y, z]
+        """
+        if name in self.visualization_points:
+            self.visualization_points[name]['position'] = np.array(position)
+    def update_point_color(self, name: str, color: Tuple[float, float, float, float]):
+        """
+        更新指定点的颜色
+        
+        Args:
+            name: 点的名称
+            color: 新的RGBA颜色值
+        """
+        if name in self.visualization_points:
+            self.visualization_points[name]['color'] = color
+    def update_point_size(self, name: str, size: float):
+        """
+        更新指定点的大小
+        
+        Args:
+            name: 点的名称
+            size: 新的点大小
+        """
+        if name in self.visualization_points:
+            self.visualization_points[name]['size'] = size
+    def remove_visualization_point(self, name: str):
+        """
+        删除指定的可视化点
+        
+        Args:
+            name: 要删除的点的名称
+        """
+        if name in self.visualization_points:
+            del self.visualization_points[name]
+    def clear_all_points(self):
+        """清除所有可视化点"""
+        self.visualization_points.clear()
+    def render_visualization_points(self):
+        """
+        渲染所有可视化点
+        """
+        if self.viewer is None:
+            return
+            
+        scene = self.viewer.user_scn
+        if scene is None:
+            return
+            
+        # 为每个点添加几何体
+        for point_data in self.visualization_points.values():
+            if scene.ngeom >= scene.maxgeom:
+                break
+                
+            geom = scene.geoms[scene.ngeom]
+            geom.type = mujoco.mjtGeom.mjGEOM_SPHERE
+            geom.size[:] = [point_data['size'], 0, 0]
+            geom.pos[:] = point_data['position']
+            geom.rgba[:] = point_data['color']
+            geom.segid = -1  # 不被选中
+            geom.category = mujoco.mjtCatBit.mjCAT_DECOR  # 装饰类别
+            geom.objtype = mujoco.mjtObj.mjOBJ_UNKNOWN
+            geom.objid = -1
+            scene.ngeom += 1
+# ... existing code ...
 
 from world import CoordinateTransformer
 def demo_xbox_control_with_visualization():
@@ -775,6 +844,13 @@ def demo_xbox_control_with_visualization():
         
         # 初始化到参考姿态
         robot_controller.initialize_to_reference_pose()
+        
+        # 添加一个红色的可视化点
+        robot_controller.add_visualization_point("target_point", [0.5, 0.5, 0.5], color=(1, 0, 0, 1), size=0.1)
+        # 添加一个绿色的可视化点
+        robot_controller.add_visualization_point("obstacle_point", [-0.5, 0.5, 0.5], color=(0, 1, 0, 1), size=0.1)
+        # 更新点的位置
+        robot_controller.update_point_position("target_point", [0.5, 0.5, 0.5])
         
         # 获取初始位姿
         initial_left_pose = mink.SE3.from_mocap_name(robot_controller.model, robot_controller.data, MOCAP_LEFT)
@@ -802,7 +878,7 @@ def demo_xbox_control_with_visualization():
         print("按X键切换到坐标跟踪模式")
         
         # 控制参数
-        position_scale = 0.1  # 降低位置控制灵敏度，避免移动过快
+        position_scale = 0.03  # 降低位置控制灵敏度，避免移动过快
         rotation_scale = 0.1   # 姿态控制灵敏度
         
         # 初始化左右臂的当前位置和姿态
@@ -973,7 +1049,7 @@ def demo_xbox_control_with_visualization():
                 last_left_pos = current_left_pos
                 last_right_pos = current_right_pos
                 
-                print(target_left_pose,target_right_pose)
+                # print(target_left_pose,target_right_pose)
                 
                 # 设置双臂目标位姿
                 robot_controller.set_end_effector_pose(
@@ -983,7 +1059,7 @@ def demo_xbox_control_with_visualization():
                 )
                 
                 # 控制循环频率
-                time.sleep(0.02)  # 50Hz控制频率
+                time.sleep(0.001)  # 50Hz控制频率
                 
         except KeyboardInterrupt:
             print("检测到Ctrl+C，退出控制")

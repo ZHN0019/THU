@@ -73,7 +73,7 @@
     <site name="initial_site" size="0.01" pos="0.3 -0.3 1.5" quat="0.0778 0 0 0.997 " rgba="1 0 0 0" group="1"/>
     <body name="Link1^Left" pos="0 0.1065 1.575" quat="0.499998 0.5 0.5 -0.500002">
       <inertial pos="-3.63877e-05 -0.097498 -0.129115" quat="0.693846 -0.131161 0.131988 0.695668" mass="0.353624" diaginertia="0.00115184 0.00106578 0.000282856"/>
-      <joint name="Joint1^Left" pos="0 0 0" axis="0 0 1" range="0 3.1416"/>
+      <joint name="Joint1^Left" pos="0 0 0" axis="0 0 1" range="-0.7 3.1416"/>
       <geom type="mesh" contype="0" conaffinity="0" rgba="0.792157 0.819608 0.933333 1" mesh="Link1^Left"/>
       <body name="Link2^Left" pos="0 -0.08 -0.1475" quat="0.707105 -0.707108 0 0">
         <inertial pos="-0.00842998 -0.0379344 0.062865" quat="0.645026 0.762854 -0.00486933 0.0444068" mass="0.223746" diaginertia="0.000896666 0.000657605 0.000298422"/>
@@ -81,7 +81,7 @@
         <geom type="mesh" contype="0" conaffinity="0" rgba="0.792157 0.819608 0.933333 1" mesh="Link2^Left"/>
         <body name="Link3^Left" pos="0 0 0.08" quat="0.499998 -0.5 0.500002 -0.5">
           <inertial pos="0.0120069 -0.00267785 0.0483825" quat="0.999811 -0.00516313 -0.0178157 -0.00587148" mass="0.555675" diaginertia="0.00103102 0.000962243 0.000369422"/>
-          <joint name="Joint3^Left" pos="0 0 0" axis="0 0 1" range="0 1.73"/>
+          <joint name="Joint3^Left" pos="0 0 0" axis="0 0 1" range="-1.73 1.73"/>
           <geom type="mesh" contype="0" conaffinity="0" rgba="0.792157 0.819608 0.933333 1" mesh="Link3^Left"/>
           <body name="Link3_2^Left" pos="0 0 0.26454" quat="0.707105 0 -0.707108 0">
             <inertial pos="0.0350125 -0.00114042 0.00310728" quat="-3.44429e-06 0.707107 5.40366e-06 0.707107" mass="0.0556282" diaginertia="0.000122092 9.40931e-05 2.80613e-05"/>
@@ -211,7 +211,7 @@
     </body>
     <body name="Link1^Right" pos="0 -0.1065 1.575" quat="0.499998 0.5 0.5 -0.500002">
       <inertial pos="-3.6276e-05 -0.097498 0.129114" quat="0.693842 0.131159 -0.131987 0.695673" mass="0.353626" diaginertia="0.00115183 0.00106579 0.000282846"/>
-      <joint name="Joint1^Right" pos="0 0 0" axis="0 0 1" range="0 3.1416"/>
+      <joint name="Joint1^Right" pos="0 0 0" axis="0 0 1" range="-0.7 3.1416"/>
       <geom type="mesh" contype="0" conaffinity="0"  rgba="0.792157 0.819608 0.933333 1" mesh="Link1^Right"/>
       <body name="Link2^Right" pos="0 -0.08 0.1475" quat="0.707105 -0.707108 0 0">
         <inertial pos="-0.00843013 0.0379353 0.0628673" quat="0.762883 0.644992 -0.0444073 0.00486929" mass="0.223743" diaginertia="0.000896662 0.000657596 0.000298425"/>
@@ -219,7 +219,7 @@
         <geom type="mesh" contype="0" conaffinity="0"  rgba="0.792157 0.819608 0.933333 1" mesh="Link2^Right"/>
         <body name="Link3^Right" pos="0 0 0.08" quat="0.499998 -0.5 0.500002 -0.5">
           <inertial pos="-0.012007 -0.00267789 0.0483826" quat="0.999811 -0.0051636 0.0178156 0.00587463" mass="0.555673" diaginertia="0.00103102 0.000962243 0.000369422"/>
-          <joint name="Joint3^Right" pos="0 0 0" axis="0 0 -1" range="0 1.73"/>
+          <joint name="Joint3^Right" pos="0 0 0" axis="0 0 -1" range="-1.73 1.73"/>
           <geom type="mesh" contype="0" conaffinity="0"  rgba="0.792157 0.819608 0.933333 1" mesh="Link3^Right"/>
           <body name="Link3_2^Right" pos="0 0 0.26454" quat="0.707105 0 -0.707108 0">
             <inertial pos="0.0350125 -0.00114042 -0.00310728" quat="-5.40366e-06 0.707107 3.44429e-06 0.707107" mass="0.0556282" diaginertia="0.000122092 9.40931e-05 2.80613e-05"/>
@@ -366,13 +366,13 @@
   </equality>
 
   <actuator>
-    <position name="Joint1^Left" joint="Joint1^Left" ctrlrange="0 3.1416" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint2^Left" joint="Joint2^Left" ctrlrange="0 2.23" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint3^Left" joint="Joint3^Left" ctrlrange="0 1.73" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint3_2^Left" joint="Joint3_2^Left" ctrlrange="0 1.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint5_1_1^Left" joint="Joint5_1_1^Left" ctrlrange="-0.3 0.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint5_2_1^Left" joint="Joint5_2_1^Left" ctrlrange="-0.3 0.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint7^Left" joint="Joint7^Left" ctrlrange="0 3.1416" kp="1200" kv="60" forcerange="-150 150"/>
+    <position name="Joint1^Left" joint="Joint1^Left" ctrlrange="-0.7 3.1416" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint2^Left" joint="Joint2^Left" ctrlrange="0 2.23" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint3^Left" joint="Joint3^Left" ctrlrange="-1.73 1.73" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint3_2^Left" joint="Joint3_2^Left" ctrlrange="0 1.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint5_1_1^Left" joint="Joint5_1_1^Left" ctrlrange="-0.3 0.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint5_2_1^Left" joint="Joint5_2_1^Left" ctrlrange="-0.3 0.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint7^Left" joint="Joint7^Left" ctrlrange="0 3.1416" kp="7500" kv="120" forcerange="-1500 1500"/>
 
     <position name="l_thumb_1" joint="thumb_1_left" kp="200" kv="10" ctrlrange="-0.725 -0.715" forcerange="-50 50"/>
     <position name="l_thumb_2" joint="thumb_2_left" kp="200" kv="10" ctrlrange="-0.725 -0.715" forcerange="-50 50"/>
@@ -386,13 +386,13 @@
     <position name="l_little_1" joint="little_1_left" kp="200" kv="10" ctrlrange="-1.55 -1.45" forcerange="-50 50"/>
     <position name="l_little_2" joint="little_2_left" kp="200" kv="10" ctrlrange="-1.55 -1.45" forcerange="-50 50"/>
 
-    <position name="Joint1^Right" joint="Joint1^Right" ctrlrange="0 3.1416" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint2^Right" joint="Joint2^Right" ctrlrange="0 2.23" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint3^Right" joint="Joint3^Right" ctrlrange="0 1.73" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint3_2^Right" joint="Joint3_2^Right" ctrlrange="0 1.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint5_1_1^Right" joint="Joint5_1_1^Right" ctrlrange="-0.3 0.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint5_2_1^Right" joint="Joint5_2_1^Right" ctrlrange="-0.3 0.3" kp="1200" kv="60" forcerange="-150 150"/>
-    <position name="Joint7^Right" joint="Joint7^Right" ctrlrange="-3.1416 3.1416" kp="1200" kv="60" forcerange="-150 150"/>
+    <position name="Joint1^Right" joint="Joint1^Right" ctrlrange="-0.7 3.1416" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint2^Right" joint="Joint2^Right" ctrlrange="0 2.23" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint3^Right" joint="Joint3^Right" ctrlrange="-1.73 1.73" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint3_2^Right" joint="Joint3_2^Right" ctrlrange="0 1.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint5_1_1^Right" joint="Joint5_1_1^Right" ctrlrange="-0.3 0.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint5_2_1^Right" joint="Joint5_2_1^Right" ctrlrange="-0.3 0.3" kp="7500" kv="120" forcerange="-1500 1500"/>
+    <position name="Joint7^Right" joint="Joint7^Right" ctrlrange="-3.1416 3.1416" kp="7500" kv="120" forcerange="-1500 1500"/>
 
     <position name="r_thumb_1" joint="thumb_1_right" kp="200" kv="10" ctrlrange="-1.425 -1.415" forcerange="-50 50"/>
     <position name="r_thumb_2" joint="thumb_2_right" kp="200" kv="10" ctrlrange="-0.530 -0.520" forcerange="-50 50"/>
