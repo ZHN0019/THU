@@ -747,7 +747,9 @@ class RobotController:
     def set_handkerchief_pose(self, handkerchief_id, position=None, quaternion=None):
         self.data.mocap_pos[self.Handkerchief_P[handkerchief_id]] = position
         self.data.mocap_quat[self.Handkerchief_P[handkerchief_id]] = quaternion
-    def set_handkerchiefs_poses(self, poses):
+        mujoco.mj_forward(self.model, self.data)
+        self.viewer.sync()
+    def set_handkerchiefs_poses(self, poses, quats):
         """
         批量设置多个Handkerchief物体的位置和姿态
         
@@ -755,10 +757,8 @@ class RobotController:
             poses: 字典，键为handkerchief_id (1-5)，值为包含position和quaternion的字典
                   例如: {1: {"position": [0.1, 0.2, 0.3], "quaternion": [1, 0, 0, 0]}}
         """
-        for handkerchief_id, pose in poses.items():
-            position = pose.get("position", None)
-            quaternion = pose.get("quaternion", None)
-            self.set_handkerchief_pose(handkerchief_id, position, quaternion)
+        for i in range(len(poses)):
+            self.set_handkerchief_pose(i, poses[i]/1000., quats[i]/1000.)
 
 from world import CoordinateTransformer
 def demo_xbox_control_with_visualization():
@@ -884,11 +884,7 @@ def demo_xbox_control_with_visualization():
                 if position_tracking_mode:
                     # 当 all_correct 为 True 时，使用获取到的新位置，姿态保持不变
                     tracked_position = coordinate_transformer.get_current_position()
-                    for handkerchief_id in range(5):
-                        robot_controller.set_handkerchief_pose(
-                            handkerchief_id, 
-                            position=coordinate_transformer.Handkerchief_Poss[handkerchief_id], 
-                            quaternion=coordinate_transformer.Handkerchief_Quats[handkerchief_id])
+                    robot_controller.set_handkerchiefs_poses(coordinate_transformer.Handkerchief_Poss,coordinate_transformer.Handkerchief_Quats)
                     
                     # 当 all_correct 为 False 时，位置和姿态都保持不变
                     if coordinate_transformer.all_correct:

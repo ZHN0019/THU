@@ -32,8 +32,8 @@ class CoordinateTransformer:
         self.last_valid_position = [0,0,0]
         self.current_world_position = None
         
-        self.Handkerchief_Poss = [[0,0,0] for _ in range(5)]
-        self.Handkerchief_Quats = [[0,0,0,0] for _ in range(5)]
+        self.Handkerchief_Poss = [np.array([0,0,0]) for _ in range(5)]
+        self.Handkerchief_Quats = [np.array([0,0,0,0]) for _ in range(5)]
         self.Orighin_Poss = [[0,0,0] for _ in range(5)]
         self.Origin_Quats = [[0,0,0,0] for _ in range(5)]
         
@@ -217,8 +217,8 @@ class CoordinateTransformer:
             
             # 创建坐标系A的原点（在世界坐标系中）
             origin_A_in_world = np.array(self.reference_origin_in_world)
-            world_positions = [[0,0,0] for _ in range(6)]
-            world_rots = [[0,0,0] for _ in range(6)]
+            world_positions = [np.array([0,0,0]) for _ in range(6)]
+            world_rots = [np.array([0,0,0,0]) for _ in range(6)]
             for i in range(len(target_marker_locs)):
                 target_marker_loc = target_marker_locs[i]
                 # 创建标记点在坐标系B中的位置
@@ -246,7 +246,7 @@ class CoordinateTransformer:
                 # 世界坐标 = 坐标系A原点在世界坐标系中的位置 + 向量在世界坐标系中的表示
                 if target_marker_loc[0] != 9999999.0:
                     world_positions[i] = origin_A_in_world + vector_W
-                    world_rots[i] = target_marker_rots[i]
+                    world_rots[i] = np.array(target_marker_rots[i])
             
             # 更新当前位置并保存为上一次的有效位置
             self.Handkerchief_Poss = world_positions[1:]
